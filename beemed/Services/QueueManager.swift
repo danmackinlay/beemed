@@ -48,10 +48,26 @@ final class QueueManager {
 
     func markAttempt(id: UUID, error: String?) {
         if let index = queue.firstIndex(where: { $0.id == id }) {
-            queue[index].attemptCount += 1
-            queue[index].lastError = error
+            queue[index].recordFailure(error: error ?? "Unknown error")
             saveToDisk()
         }
+    }
+
+    func markAuthFailure(id: UUID) {
+        // Remove the item - user must re-authenticate
+        // Don't spin forever on expired tokens
+        queue.removeAll { $0.id == id }
+        saveToDisk()
+    }
+
+    func cleanupStaleItems() {
+        let maxAttempts = 10
+        queue.removeAll { $0.attemptCount >= maxAttempts }
+        saveToDisk()
+    }
+
+    func itemsReadyToRetry() -> [QueuedDatapoint] {
+        queue.filter { $0.isReadyToRetry }
     }
 
     func pendingCount(for goalSlug: String) -> Int {
