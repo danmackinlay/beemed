@@ -7,6 +7,7 @@ import SwiftUI
 
 struct MainView: View {
     @Environment(GoalsManager.self) private var goalsManager
+    @Environment(AuthState.self) private var authState
     @AppStorage("pinnedGoalSlugs") private var pinnedGoalSlugsData: Data = Data()
     @State private var searchText: String = ""
     @State private var showingSettings: Bool = false
@@ -89,6 +90,8 @@ struct MainView: View {
             }
             .sheet(isPresented: $showingSettings) {
                 SettingsView()
+                    .environment(authState)
+                    .environment(goalsManager)
             }
             .sheet(item: $selectedGoalForCustomValue) { goal in
                 CustomValueSheet(goal: goal) { value, comment in
@@ -104,8 +107,19 @@ struct MainView: View {
     }
 
     private func logDatapoint(goal: Goal, value: Double, comment: String = "") {
-        // Placeholder: will be implemented in Milestone D
-        print("Logging \(value) to \(goal.slug) with comment: \(comment)")
+        Task {
+            do {
+                try await BeeminderClient.createDatapoint(
+                    goalSlug: goal.slug,
+                    value: value,
+                    comment: comment.isEmpty ? nil : comment
+                )
+                print("Successfully logged \(value) to \(goal.slug)")
+            } catch {
+                print("Failed to log datapoint: \(error)")
+                // TODO: Milestone E will add offline queue here
+            }
+        }
     }
 }
 
