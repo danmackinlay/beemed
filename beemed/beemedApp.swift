@@ -6,27 +6,21 @@
 //
 
 import SwiftUI
-import SwiftData
 
 @main
 struct beemedApp: App {
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            Item.self,
-        ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-
-        do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
-        } catch {
-            fatalError("Could not create ModelContainer: \(error)")
-        }
-    }()
+    @State private var authState = AuthState()
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            Group {
+                if authState.isSignedIn {
+                    MainView()
+                } else {
+                    LoginView()
+                }
+            }
+            .environment(authState)
         }
-        .modelContainer(sharedModelContainer)
     }
 }
