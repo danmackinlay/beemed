@@ -7,15 +7,26 @@ import AuthenticationServices
 import Foundation
 #if os(macOS)
 import AppKit
+#else
+import UIKit
 #endif
 
-#if os(macOS)
 private class WebAuthContextProvider: NSObject, ASWebAuthenticationPresentationContextProviding {
+    static let shared = WebAuthContextProvider()
+    private override init() { super.init() }
+
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        NSApplication.shared.keyWindow ?? NSWindow()
+        #if os(macOS)
+        return NSApplication.shared.windows.first { $0.isKeyWindow }
+            ?? NSApplication.shared.windows.first
+            ?? NSWindow()
+        #else
+        return UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first?.windows.first ?? UIWindow()
+        #endif
     }
 }
-#endif
 
 enum AuthService {
     private static let clientID = "6nuc31fv1a8qdl30e5rrz5wan"
@@ -30,9 +41,7 @@ enum AuthService {
     static func signIn() async throws -> AuthResult {
         let authURL = URL(string: "https://www.beeminder.com/apps/authorize?client_id=\(clientID)&redirect_uri=\(redirectURI)&response_type=token")!
 
-        #if os(macOS)
-        let contextProvider = WebAuthContextProvider()
-        #endif
+        let contextProvider = WebAuthContextProvider.shared
 
         let callbackURL = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, Error>) in
             let session = ASWebAuthenticationSession(
@@ -48,9 +57,7 @@ enum AuthService {
                 }
             }
 
-            #if os(macOS)
             session.presentationContextProvider = contextProvider
-            #endif
             session.prefersEphemeralWebBrowserSession = false
             session.start()
         }
