@@ -44,7 +44,7 @@ struct GoalRowView: View {
 #Preview {
     List {
         GoalRowView(
-            goal: Goal.dummyData[0],
+            goal: Goal(slug: "exercise", title: "Daily Exercise", updatedAt: Date()),
             onPlusOne: {},
             onCustomValue: {}
         )

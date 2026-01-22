@@ -6,6 +6,7 @@
 import SwiftUI
 
 struct MainView: View {
+    @Environment(GoalsManager.self) private var goalsManager
     @AppStorage("pinnedGoalSlugs") private var pinnedGoalSlugsData: Data = Data()
     @State private var searchText: String = ""
     @State private var showingSettings: Bool = false
@@ -19,7 +20,7 @@ struct MainView: View {
     }
 
     private var allGoals: [Goal] {
-        Goal.dummyData
+        goalsManager.goals
     }
 
     private var pinnedGoals: [Goal] {
@@ -39,7 +40,9 @@ struct MainView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if pinnedGoals.isEmpty {
+                if goalsManager.isLoading && goalsManager.goals.isEmpty {
+                    ProgressView("Loading goals...")
+                } else if pinnedGoals.isEmpty {
                     ContentUnavailableView {
                         Label("No Pinned Goals", systemImage: "pin.slash")
                     } description: {
@@ -62,6 +65,9 @@ struct MainView: View {
                         )
                     }
                     .searchable(text: $searchText, prompt: "Search goals")
+                    .refreshable {
+                        await goalsManager.fetchGoals()
+                    }
                 }
             }
             .navigationTitle("Beemed")
@@ -89,6 +95,11 @@ struct MainView: View {
                     logDatapoint(goal: goal, value: value, comment: comment)
                 }
             }
+            .task {
+                if goalsManager.goals.isEmpty {
+                    await goalsManager.fetchGoals()
+                }
+            }
         }
     }
 
@@ -101,4 +112,5 @@ struct MainView: View {
 #Preview {
     MainView()
         .environment(AuthState())
+        .environment(GoalsManager())
 }

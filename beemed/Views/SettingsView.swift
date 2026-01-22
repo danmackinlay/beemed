@@ -8,6 +8,7 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(AuthState.self) private var authState
+    @Environment(GoalsManager.self) private var goalsManager
     @AppStorage("pinnedGoalSlugs") private var pinnedGoalSlugsData: Data = Data()
     @State private var searchText: String = ""
 
@@ -22,7 +23,7 @@ struct SettingsView: View {
     }
 
     private var allGoals: [Goal] {
-        Goal.dummyData
+        goalsManager.goals
     }
 
     private var filteredGoals: [Goal] {
@@ -72,7 +73,22 @@ struct SettingsView: View {
 
                 Section {
                     LabeledContent("Connected as", value: authState.username)
+                    Button {
+                        Task {
+                            await goalsManager.fetchGoals()
+                        }
+                    } label: {
+                        HStack {
+                            Text("Refresh Goals")
+                            Spacer()
+                            if goalsManager.isLoading {
+                                ProgressView()
+                            }
+                        }
+                    }
+                    .disabled(goalsManager.isLoading)
                     Button("Sign Out", role: .destructive) {
+                        goalsManager.clearCache()
                         authState.signOut()
                         dismiss()
                     }
@@ -99,4 +115,5 @@ struct SettingsView: View {
 #Preview {
     SettingsView()
         .environment(AuthState())
+        .environment(GoalsManager())
 }

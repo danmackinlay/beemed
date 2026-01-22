@@ -10,6 +10,7 @@ import SwiftUI
 @main
 struct beemedApp: App {
     @State private var authState = AuthState()
+    @State private var goalsManager = GoalsManager()
 
     var body: some Scene {
         WindowGroup {
@@ -21,6 +22,7 @@ struct beemedApp: App {
                 }
             }
             .environment(authState)
+            .environment(goalsManager)
         }
     }
 }

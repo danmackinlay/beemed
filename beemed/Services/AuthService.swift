@@ -5,6 +5,17 @@
 
 import AuthenticationServices
 import Foundation
+#if os(macOS)
+import AppKit
+#endif
+
+#if os(macOS)
+private class WebAuthContextProvider: NSObject, ASWebAuthenticationPresentationContextProviding {
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        NSApplication.shared.keyWindow ?? NSWindow()
+    }
+}
+#endif
 
 enum AuthService {
     private static let clientID = "4l7yrd4esmb0hgi5hgc6u2huy"
@@ -18,6 +29,10 @@ enum AuthService {
 
     static func signIn() async throws -> AuthResult {
         let authURL = URL(string: "https://www.beeminder.com/apps/authorize?client_id=\(clientID)&redirect_uri=\(redirectURI)&response_type=token")!
+
+        #if os(macOS)
+        let contextProvider = WebAuthContextProvider()
+        #endif
 
         let callbackURL = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, Error>) in
             let session = ASWebAuthenticationSession(
@@ -33,6 +48,9 @@ enum AuthService {
                 }
             }
 
+            #if os(macOS)
+            session.presentationContextProvider = contextProvider
+            #endif
             session.prefersEphemeralWebBrowserSession = false
             session.start()
         }

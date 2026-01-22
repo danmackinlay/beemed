@@ -67,7 +67,7 @@ struct CustomValueSheet: View {
 
 #Preview {
     CustomValueSheet(
-        goal: Goal.dummyData[0],
+        goal: Goal(slug: "exercise", title: "Daily Exercise", updatedAt: Date()),
         onSubmit: { value, comment in
             print("Submitted \(value) with comment: \(comment)")
         }
