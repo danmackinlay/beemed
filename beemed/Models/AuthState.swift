@@ -5,6 +5,7 @@
 
 import SwiftUI
 
+@MainActor
 @Observable
 final class AuthState {
     var isSignedIn: Bool = false

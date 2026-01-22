@@ -4,7 +4,6 @@
 //
 
 import Foundation
-import SwiftUI
 
 struct Goal: Identifiable, Codable, Hashable {
     let slug: String
@@ -32,12 +31,5 @@ struct Goal: Identifiable, Codable, Hashable {
         let days = Int(hours / 24)
         let remainingHours = Int(hours) % 24
         return "\(days)d \(remainingHours)h"
-    }
-
-    var urgencyColor: Color {
-        let hours = timeToDerail / 3600
-        if hours < 24 { return .red }
-        if hours < 72 { return .orange }
-        return .yellow
     }
 }

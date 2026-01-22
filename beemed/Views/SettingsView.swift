@@ -9,6 +9,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(AuthState.self) private var authState
     @Environment(GoalsManager.self) private var goalsManager
+    @Environment(QueueManager.self) private var queueManager
     @AppStorage("pinnedGoalSlugs") private var pinnedGoalSlugsData: Data = Data()
     @State private var searchText: String = ""
 
@@ -88,6 +89,7 @@ struct SettingsView: View {
                     }
                     .disabled(goalsManager.isLoading)
                     Button("Sign Out", role: .destructive) {
+                        queueManager.clearQueue()
                         goalsManager.clearCache()
                         authState.signOut()
                         dismiss()
@@ -118,4 +120,5 @@ struct SettingsView: View {
     SettingsView()
         .environment(AuthState())
         .environment(GoalsManager())
+        .environment(QueueManager())
 }

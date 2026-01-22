@@ -150,13 +150,9 @@ struct MainView: View {
 
             datapointStates[goal.slug] = result
 
-            // Clear success state after a delay
-            if case .success = result {
-                try? await Task.sleep(for: .seconds(5))
-                if case .success = datapointStates[goal.slug] {
-                    datapointStates[goal.slug] = .idle
-                }
-            }
+            // Clear local override after delay so syncManager becomes source of truth
+            try? await Task.sleep(for: .seconds(3))
+            datapointStates.removeValue(forKey: goal.slug)
         }
     }
 
@@ -214,9 +210,10 @@ struct NetworkToastView: View {
 }
 
 #Preview {
+    @Previewable @State var queueManager = QueueManager()
     MainView()
         .environment(AuthState())
         .environment(GoalsManager())
-        .environment(QueueManager())
-        .environment(SyncManager())
+        .environment(queueManager)
+        .environment(SyncManager(queueManager: queueManager))
 }

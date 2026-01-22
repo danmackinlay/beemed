@@ -32,6 +32,7 @@ enum AuthService {
     private static let clientID = "6nuc31fv1a8qdl30e5rrz5wan"
     private static let redirectURI = "beemed://oauth-callback/"
     private static let callbackScheme = "beemed"
+    private static var currentSession: ASWebAuthenticationSession?
 
     struct AuthResult {
         let accessToken: String
@@ -48,6 +49,7 @@ enum AuthService {
                 url: authURL,
                 callbackURLScheme: callbackScheme
             ) { callbackURL, error in
+                currentSession = nil
                 if let error = error {
                     continuation.resume(throwing: error)
                 } else if let callbackURL = callbackURL {
@@ -59,6 +61,7 @@ enum AuthService {
 
             session.presentationContextProvider = contextProvider
             session.prefersEphemeralWebBrowserSession = false
+            currentSession = session
             session.start()
         }
 
@@ -67,14 +70,9 @@ enum AuthService {
 
     private static func parseCallback(url: URL) throws -> AuthResult {
         // The callback URL format is: beemed://oauth-callback/?access_token=TOKEN&username=USERNAME
-        print("OAuth callback URL: \(url.absoluteString)")
-
         guard let query = url.query else {
-            print("No query string in URL")
             throw AuthError.invalidCallback
         }
-
-        print("Query found: \(query.prefix(50))...")
 
         var params: [String: String] = [:]
         for pair in query.split(separator: "&") {
@@ -89,11 +87,9 @@ enum AuthService {
 
         guard let accessToken = params["access_token"],
               let username = params["username"] else {
-            print("Missing credentials. Keys found: \(params.keys.joined(separator: ", "))")
             throw AuthError.missingCredentials
         }
 
-        print("Parsed successfully: username=\(username)")
         return AuthResult(accessToken: accessToken, username: username)
     }
 

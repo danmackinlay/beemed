@@ -5,6 +5,15 @@
 
 import SwiftUI
 
+extension Goal {
+    var urgencyColor: Color {
+        let hours = timeToDerail / 3600
+        if hours < 24 { return .red }
+        if hours < 72 { return .orange }
+        return .yellow
+    }
+}
+
 struct GoalRowView: View {
     let goal: Goal
     let datapointState: DatapointState

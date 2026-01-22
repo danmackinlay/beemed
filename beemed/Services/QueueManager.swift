@@ -5,6 +5,7 @@
 
 import Foundation
 
+@MainActor
 @Observable
 final class QueueManager {
     private(set) var queue: [QueuedDatapoint] = []
@@ -63,6 +64,13 @@ final class QueueManager {
 
     func pendingDatapoints(for goalSlug: String) -> [QueuedDatapoint] {
         queue.filter { $0.goalSlug == goalSlug }
+    }
+
+    func clearQueue() {
+        queue = []
+        if let url = Self.queueFileURL {
+            try? FileManager.default.removeItem(at: url)
+        }
     }
 
     private func loadFromDisk() {

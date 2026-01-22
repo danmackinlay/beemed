@@ -20,6 +20,7 @@ enum DatapointState: Equatable {
     case failed(String)
 }
 
+@MainActor
 @Observable
 final class SyncManager {
     private(set) var networkStatus: NetworkState = .offline
@@ -28,19 +29,16 @@ final class SyncManager {
 
     private let monitor = NWPathMonitor()
     private let monitorQueue = DispatchQueue(label: "com.beemed.networkMonitor")
-    private var queueManager: QueueManager?
+    private let queueManager: QueueManager
     private var isFlushing = false
 
-    init() {
+    init(queueManager: QueueManager) {
+        self.queueManager = queueManager
         startMonitoring()
     }
 
     deinit {
         monitor.cancel()
-    }
-
-    func configure(queueManager: QueueManager) {
-        self.queueManager = queueManager
     }
 
     private func startMonitoring() {
@@ -64,7 +62,7 @@ final class SyncManager {
     }
 
     func flush() async {
-        guard let queueManager, !isFlushing else { return }
+        guard !isFlushing else { return }
         guard networkStatus == .online else { return }
         guard !queueManager.queue.isEmpty else { return }
 
@@ -104,7 +102,6 @@ final class SyncManager {
         timestamp: Date = Date(),
         comment: String? = nil
     ) async -> DatapointState {
-        guard let queueManager else { return .failed("Not initialized") }
 
         // Always enqueue first for durability
         let datapoint = queueManager.enqueue(
@@ -144,7 +141,6 @@ final class SyncManager {
     }
 
     func datapointState(for goalSlug: String) -> DatapointState {
-        guard let queueManager else { return .idle }
 
         // Check if any datapoint for this goal is currently sending
         let pendingForGoal = queueManager.pendingDatapoints(for: goalSlug)

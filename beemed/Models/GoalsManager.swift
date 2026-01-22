@@ -5,6 +5,7 @@
 
 import SwiftUI
 
+@MainActor
 @Observable
 final class GoalsManager {
     var goals: [Goal] = []
