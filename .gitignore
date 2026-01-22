@@ -1,0 +1,19 @@
+# Xcode user data
+xcuserdata/
+
+# Build artifacts
+build/
+DerivedData/
+*.xcarchive
+
+# Swift Package Manager
+.build/
+Packages/
+*.resolved
+
+# macOS
+.DS_Store
+
+# Secrets
+.env
+*.pem
