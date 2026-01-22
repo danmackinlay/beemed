@@ -38,7 +38,7 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            List {
+            Form {
                 Section {
                     ForEach(filteredGoals) { goal in
                         HStack {
@@ -96,8 +96,10 @@ struct SettingsView: View {
                     Text("Account")
                 }
             }
+            .formStyle(.grouped)
             .searchable(text: $searchText, prompt: "Search goals")
             .navigationTitle("Settings")
+            .frame(minWidth: 400, minHeight: 300)
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

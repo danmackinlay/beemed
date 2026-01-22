@@ -67,7 +67,12 @@ struct CustomValueSheet: View {
 
 #Preview {
     CustomValueSheet(
-        goal: Goal(slug: "exercise", title: "Daily Exercise", updatedAt: Date()),
+        goal: Goal(
+            slug: "exercise",
+            title: "Daily Exercise",
+            losedate: Int(Date().addingTimeInterval(3600 * 48).timeIntervalSince1970),
+            updatedAt: Date()
+        ),
         onSubmit: { value, comment in
             print("Submitted \(value) with comment: \(comment)")
         }
