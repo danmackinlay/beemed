@@ -92,10 +92,6 @@ enum AuthService {
 
         return AuthResult(accessToken: accessToken, username: username)
     }
-
-    static func signOut() {
-        KeychainHelper.deleteToken()
-    }
 }
 
 enum AuthError: Error, LocalizedError {

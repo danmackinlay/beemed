@@ -108,12 +108,3 @@ extension WatchSessionManager: WCSessionDelegate {
         }
     }
 }
-
-/// Lightweight goal structure for watch communication
-struct WatchGoal: Identifiable, Codable {
-    let slug: String
-    let title: String
-    let losedate: Int
-
-    var id: String { slug }
-}

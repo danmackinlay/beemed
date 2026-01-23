@@ -3,6 +3,7 @@
 //  beemedWatch
 //
 
+import os
 import SwiftUI
 import WatchConnectivity
 
@@ -72,7 +73,7 @@ final class WatchState: NSObject {
 extension WatchState: WCSessionDelegate {
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         if let error {
-            print("WCSession activation failed: \(error)")
+            Logger.watch.error("WCSession activation failed: \(error.localizedDescription)")
             return
         }
 
@@ -102,19 +103,14 @@ extension WatchState: WCSessionDelegate {
     }
 }
 
-/// Lightweight goal structure for watch communication
-struct WatchGoal: Identifiable, Codable {
-    let slug: String
-    let title: String
-    let losedate: Int
+// MARK: - WatchGoal Extensions
 
-    var id: String { slug }
-
+extension WatchGoal {
     var urgencyColor: Color {
-        let timeToDerail = Date(timeIntervalSince1970: TimeInterval(losedate)).timeIntervalSinceNow
-        let hours = timeToDerail / 3600
-        if hours < 24 { return .red }
-        if hours < 72 { return .orange }
-        return .yellow
+        switch WatchGoalUrgency(losedate: losedate) {
+        case .critical: return .red
+        case .warning: return .orange
+        case .safe: return .yellow
+        }
     }
 }

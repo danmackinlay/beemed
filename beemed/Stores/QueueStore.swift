@@ -23,7 +23,9 @@ actor QueueStore: QueueStoreProtocol {
         return appDirectory.appendingPathComponent(fileName)
     }
 
-    init() {
+    init() {}
+
+    func hydrate() async {
         loadFromDisk()
     }
 

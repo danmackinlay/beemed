@@ -28,7 +28,9 @@ actor GoalsStore: GoalsStoreProtocol {
     private static var pinnedFileURL: URL? { appDirectory?.appendingPathComponent(pinnedFileName) }
     private static var lastRefreshFileURL: URL? { appDirectory?.appendingPathComponent(lastRefreshFileName) }
 
-    init() {
+    init() {}
+
+    func hydrate() async {
         loadFromDisk()
     }
 
@@ -75,6 +77,7 @@ actor GoalsStore: GoalsStoreProtocol {
 
     func clear() async throws {
         goals = []
+        pinned = []
         lastRefresh = nil
 
         if let goalsURL = Self.goalsFileURL {
@@ -82,6 +85,9 @@ actor GoalsStore: GoalsStoreProtocol {
         }
         if let refreshURL = Self.lastRefreshFileURL {
             try? FileManager.default.removeItem(at: refreshURL)
+        }
+        if let pinnedURL = Self.pinnedFileURL {
+            try? FileManager.default.removeItem(at: pinnedURL)
         }
     }
 

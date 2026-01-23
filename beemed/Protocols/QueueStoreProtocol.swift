@@ -34,6 +34,7 @@ struct UploadError: Sendable {
 }
 
 protocol QueueStoreProtocol: Sendable {
+    func hydrate() async
     func loadSnapshot() async throws -> QueueSnapshot
     func enqueue(_ item: QueuedDatapoint) async throws
     func markAttempt(_ id: UUID, error: UploadError) async throws

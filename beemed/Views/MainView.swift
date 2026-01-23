@@ -10,7 +10,7 @@ struct MainView: View {
     @State private var searchText: String = ""
     @State private var showingSettings: Bool = false
     @State private var selectedGoalForCustomValue: Goal?
-    @State private var datapointStates: [String: DatapointState] = [:]
+    @State private var localSendingState: [String: DatapointState] = [:]  // Brief local override during send
     @State private var showNetworkToast: Bool = false
     @State private var networkToastMessage: String = ""
 
@@ -48,8 +48,8 @@ struct MainView: View {
                         List(filteredGoals) { goal in
                             GoalRowView(
                                 goal: goal,
-                                datapointState: datapointStates[goal.slug] ?? datapointStateFor(goal.slug),
-                                pendingCount: pendingCountFor(goal.slug),
+                                datapointState: localSendingState[goal.slug] ?? appModel.datapointStateFor(goal.slug),
+                                pendingCount: appModel.pendingCountByGoal[goal.slug] ?? 0,
                                 onPlusOne: {
                                     logDatapoint(goal: goal, value: 1)
                                 },
@@ -134,33 +134,10 @@ struct MainView: View {
         }
     }
 
-    @MainActor
-    private func datapointStateFor(_ goalSlug: String) -> DatapointState {
-        // Check if any datapoint for this goal is currently sending
-        let pending = appModel.goals.goals.first { $0.slug == goalSlug }
-        if appModel.sendingDatapoints.contains(where: { _ in false }) {
-            // This is approximate - we'd need to track per-goal sending status
-        }
-
-        // Check for recent success
-        if let lastSuccess = appModel.lastSuccessPerGoal[goalSlug] {
-            return .success(lastSuccess)
-        }
-
-        return .idle
-    }
-
-    @MainActor
-    private func pendingCountFor(_ goalSlug: String) -> Int {
-        // This is synchronous access; for accurate count we'd need to track in AppModel
-        // For now return 0 since the queue state is updated asynchronously
-        0
-    }
-
     private func logDatapoint(goal: Goal, value: Double, comment: String = "") {
         Task {
-            // Show sending state immediately
-            datapointStates[goal.slug] = .sending
+            // Show sending state immediately via local override
+            localSendingState[goal.slug] = .sending
 
             let result = await appModel.addDatapoint(
                 goalSlug: goal.slug,
@@ -168,11 +145,12 @@ struct MainView: View {
                 comment: comment.isEmpty ? nil : comment
             )
 
-            datapointStates[goal.slug] = result
+            // Show result briefly
+            localSendingState[goal.slug] = result
 
-            // Clear local override after delay so appModel becomes source of truth
+            // Clear local override after delay so AppModel becomes source of truth
             try? await Task.sleep(for: .seconds(3))
-            datapointStates.removeValue(forKey: goal.slug)
+            localSendingState.removeValue(forKey: goal.slug)
         }
     }
 

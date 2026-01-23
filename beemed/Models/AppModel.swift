@@ -68,13 +68,14 @@ final class AppModel {
     // Track sending state and success per goal for UI feedback
     private(set) var sendingDatapoints: Set<UUID> = []
     private(set) var lastSuccessPerGoal: [String: Date] = [:]
+    private(set) var pendingCountByGoal: [String: Int] = [:]
 
     // MARK: - Dependencies
 
     private let api: any BeeminderAPI
     private let tokenStore: any TokenStore
-    private let queueStore: QueueStore
-    private let goalsStore: GoalsStore
+    private let queueStore: any QueueStoreProtocol
+    private let goalsStore: any GoalsStoreProtocol
 
     private let monitor = NWPathMonitor()
     private let monitorQueue = DispatchQueue(label: "com.beemed.networkMonitor")
@@ -86,8 +87,8 @@ final class AppModel {
     init(
         api: any BeeminderAPI = LiveBeeminderAPI(),
         tokenStore: any TokenStore = KeychainTokenStore(),
-        queueStore: QueueStore = QueueStore(),
-        goalsStore: GoalsStore = GoalsStore()
+        queueStore: any QueueStoreProtocol = QueueStore(),
+        goalsStore: any GoalsStoreProtocol = GoalsStore()
     ) {
         self.api = api
         self.tokenStore = tokenStore
@@ -104,6 +105,10 @@ final class AppModel {
     // MARK: - Startup
 
     func start() async {
+        // Hydrate stores from disk first (async I/O)
+        await goalsStore.hydrate()
+        await queueStore.hydrate()
+
         // Load token state
         let token = await tokenStore.load()
         session.tokenPresent = token != nil
@@ -316,12 +321,11 @@ final class AppModel {
                 // Network/server error - keep in queue for retry
                 try? await queueStore.markAttempt(
                     datapoint.id,
-                    error: .retryable(error.localizedDescription ?? "Unknown error")
+                    error: .retryable(error.localizedDescription)
                 )
                 await refreshQueueState()
-                Logger.sync.debug("Upload failed, queued for retry: \(error.localizedDescription ?? "Unknown")")
-                let count = await queueStore.pendingCount(for: goalSlug)
-                return .queued(count)
+                Logger.sync.debug("Upload failed, queued for retry: \(error.localizedDescription)")
+                return .queued(pendingCountByGoal[goalSlug] ?? 1)
             }
 
         } catch {
@@ -332,8 +336,7 @@ final class AppModel {
             )
             await refreshQueueState()
             Logger.sync.debug("Upload failed, queued for retry: \(error.localizedDescription)")
-            let count = await queueStore.pendingCount(for: goalSlug)
-            return .queued(count)
+            return .queued(pendingCountByGoal[goalSlug] ?? 1)
         }
     }
 
@@ -435,24 +438,13 @@ final class AppModel {
         }
     }
 
-    func pendingCount(for goalSlug: String) async -> Int {
-        await queueStore.pendingCount(for: goalSlug)
-    }
-
-    func datapointState(for goalSlug: String) async -> DatapointState {
-        let pending = await queueStore.pendingDatapoints(for: goalSlug)
-
-        // Check if any datapoint for this goal is currently sending
-        if pending.contains(where: { sendingDatapoints.contains($0.id) }) {
-            return .sending
-        }
-
+    /// Synchronous datapoint state computed from observable properties.
+    /// Use this for UI binding.
+    func datapointStateFor(_ goalSlug: String) -> DatapointState {
         // Check for pending items
-        if !pending.isEmpty {
-            if let lastError = pending.compactMap({ $0.lastError }).last {
-                return .failed(lastError)
-            }
-            return .queued(pending.count)
+        let pendingCount = pendingCountByGoal[goalSlug] ?? 0
+        if pendingCount > 0 {
+            return .queued(pendingCount)
         }
 
         // Check for recent success
@@ -470,6 +462,13 @@ final class AppModel {
             let snapshot = try await queueStore.loadSnapshot()
             queue.queuedCount = snapshot.items.count
             queue.failedCount = snapshot.stuckCount
+
+            // Compute per-goal pending counts
+            var counts: [String: Int] = [:]
+            for item in snapshot.items {
+                counts[item.goalSlug, default: 0] += 1
+            }
+            pendingCountByGoal = counts
         } catch {
             Logger.persistence.error("Failed to refresh queue state: \(error.localizedDescription)")
         }

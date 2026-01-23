@@ -14,6 +14,7 @@ struct GoalsSnapshot: Sendable {
 }
 
 protocol GoalsStoreProtocol: Sendable {
+    func hydrate() async
     func load() async throws -> GoalsSnapshot
     func saveGoals(_ goals: [Goal], at date: Date) async throws
     func savePinned(_ pinned: Set<String>) async throws
