@@ -121,15 +121,11 @@ struct MainView: View {
             }
             .onChange(of: appModel.goals.pinned) {
                 // Send updated pinned goals to watch
-                #if os(iOS)
                 WatchSessionManager.shared.sendPinnedGoals(pinnedGoals)
-                #endif
             }
             .onChange(of: appModel.goals.goals) {
                 // Send pinned goals when goals are refreshed
-                #if os(iOS)
                 WatchSessionManager.shared.sendPinnedGoals(pinnedGoals)
-                #endif
             }
         }
     }

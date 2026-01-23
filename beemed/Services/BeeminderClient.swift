@@ -39,7 +39,7 @@ enum APIError: Error, LocalizedError, Equatable {
     }
 }
 
-final class LiveBeeminderAPI: BeeminderAPI, Sendable {
+actor LiveBeeminderAPI: BeeminderAPI {
     private let baseURL = URL(string: "https://www.beeminder.com/api/v1/")!
 
     init() {}
@@ -82,6 +82,13 @@ final class LiveBeeminderAPI: BeeminderAPI, Sendable {
         }
     }
 
+    private struct CreateDatapointBody: Encodable {
+        let value: Double
+        let timestamp: Int
+        let requestid: String
+        let comment: String?
+    }
+
     func createDatapoint(token: String, request: CreateDatapointRequest) async throws {
         let url = baseURL.appendingPathComponent("users/me/goals/\(request.goalSlug)/datapoints.json")
         var urlRequest = URLRequest(url: url)
@@ -89,16 +96,15 @@ final class LiveBeeminderAPI: BeeminderAPI, Sendable {
         urlRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        var body: [String: Any] = [
-            "value": request.value,
-            "timestamp": Int(request.timestamp.timeIntervalSince1970),
-            "requestid": request.requestid
-        ]
-        if let comment = request.comment, !comment.isEmpty {
-            body["comment"] = comment
-        }
+        let body = CreateDatapointBody(
+            value: request.value,
+            timestamp: Int(request.timestamp.timeIntervalSince1970),
+            requestid: request.requestid,
+            comment: request.comment?.isEmpty == false ? request.comment : nil
+        )
 
-        urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let encoder = JSONEncoder()
+        urlRequest.httpBody = try encoder.encode(body)
 
         let (_, response): (Data, URLResponse)
         do {

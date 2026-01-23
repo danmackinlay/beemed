@@ -5,6 +5,8 @@
 
 import Foundation
 import os
+
+#if canImport(WatchConnectivity)
 import WatchConnectivity
 
 /// Manages WatchConnectivity session on iOS side.
@@ -108,3 +110,23 @@ extension WatchSessionManager: WCSessionDelegate {
         }
     }
 }
+
+#else
+
+// No-op stub for macOS (WatchConnectivity not available)
+@Observable
+final class WatchSessionManager: NSObject {
+    static let shared = WatchSessionManager()
+
+    private(set) var isWatchAppInstalled: Bool = false
+    private(set) var isReachable: Bool = false
+
+    private override init() {
+        super.init()
+    }
+
+    func configure(appModel: AppModel) {}
+    func sendPinnedGoals(_ goals: [Goal]) {}
+}
+
+#endif

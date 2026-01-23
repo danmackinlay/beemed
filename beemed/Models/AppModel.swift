@@ -63,8 +63,7 @@ final class AppModel {
     var queue = QueueState()
     var networkStatus: NetworkState = .offline
 
-    // Track sending state and success per goal for UI feedback
-    private(set) var sendingDatapoints: Set<UUID> = []
+    // Track success per goal for UI feedback
     private(set) var lastSuccessPerGoal: [String: Date] = [:]
     private(set) var pendingCountByGoal: [String: Int] = [:]
 
@@ -77,6 +76,9 @@ final class AppModel {
 
     private let monitor = NWPathMonitor()
     private let monitorQueue = DispatchQueue(label: "com.beemed.networkMonitor")
+
+    /// Tracks actual network path status separately from networkStatus (which becomes .syncing during flush)
+    @ObservationIgnored private var pathSatisfied: Bool = true
 
     private let usernameKey = "beeminder_username"
 
@@ -180,7 +182,6 @@ final class AppModel {
         goals = GoalsState()
         queue = QueueState()
         lastSuccessPerGoal = [:]
-        sendingDatapoints = []
     }
 
     // MARK: - Goals Operations
@@ -260,8 +261,11 @@ final class AppModel {
             return .queued(pendingCountByGoal[goalSlug] ?? 1)
         }
 
-        // Mark as sending
-        sendingDatapoints.insert(datapoint.id)
+        // Skip upload attempt if offline - item stays in queue with attemptCount=0
+        guard pathSatisfied else {
+            Logger.sync.debug("Offline - queued datapoint for \(goalSlug) without upload attempt")
+            return .queued(pendingCountByGoal[goalSlug] ?? 1)
+        }
 
         Logger.sync.debug("Enqueued datapoint for \(goalSlug): value=\(value)")
 
@@ -280,14 +284,11 @@ final class AppModel {
             // Success - remove from queue
             try await queueStore.remove(datapoint.id)
             await refreshQueueState()
-            sendingDatapoints.remove(datapoint.id)
             lastSuccessPerGoal[goalSlug] = Date()
             Logger.sync.debug("Immediate upload succeeded for \(goalSlug)")
             return .success(Date())
 
         } catch let error as APIError {
-            sendingDatapoints.remove(datapoint.id)
-
             switch error {
             case .unauthorized:
                 // Keep item in queue for retry after reauth
@@ -325,7 +326,6 @@ final class AppModel {
             }
 
         } catch {
-            sendingDatapoints.remove(datapoint.id)
             try? await queueStore.markAttempt(
                 datapoint.id,
                 error: .retryable(error.localizedDescription)
@@ -339,6 +339,7 @@ final class AppModel {
     // MARK: - Queue Operations
 
     func flushQueue() async {
+        guard pathSatisfied else { return }
         guard !queue.isFlushing else { return }
         guard queue.queuedCount > 0 else { return }
         guard !session.needsReauth else { return }
@@ -468,11 +469,14 @@ final class AppModel {
         monitor.pathUpdateHandler = { [weak self] path in
             Task { @MainActor in
                 guard let self else { return }
-                let wasOffline = self.networkStatus == .offline
-                self.networkStatus = path.status == .satisfied ? .online : .offline
+                let nowOnline = path.status == .satisfied
+                let wasOffline = !self.pathSatisfied
+
+                self.pathSatisfied = nowOnline
+                self.networkStatus = nowOnline ? .online : .offline
 
                 // Trigger flush when we come back online
-                if wasOffline && self.networkStatus == .online {
+                if wasOffline && nowOnline {
                     await self.flushQueue()
                 }
             }
