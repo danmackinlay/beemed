@@ -134,6 +134,18 @@ struct MainView: View {
             .onChange(of: syncManager.networkStatus) { oldValue, newValue in
                 handleNetworkStatusChange(from: oldValue, to: newValue)
             }
+            .onChange(of: pinnedGoalSlugsData) {
+                // Send updated pinned goals to watch
+                #if os(iOS)
+                WatchSessionManager.shared.sendPinnedGoals(pinnedGoals)
+                #endif
+            }
+            .onChange(of: goalsManager.goals) {
+                // Send pinned goals when goals are refreshed
+                #if os(iOS)
+                WatchSessionManager.shared.sendPinnedGoals(pinnedGoals)
+                #endif
+            }
         }
     }
 

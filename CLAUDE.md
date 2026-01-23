@@ -10,13 +10,16 @@ Beeminder Minimal Logger - a SwiftUI multiplatform app (iOS 26 + macOS 26, optio
 
 ```bash
 # Build for iOS simulator
-xcodebuild -project beemed.xcodeproj -scheme beemed -destination 'platform=iOS Simulator,name=iPhone 16' build
+xcodebuild -project beemed.xcodeproj -scheme beemed -destination 'platform=iOS Simulator,name=iPhone 17' build
 
 # Build for macOS
 xcodebuild -project beemed.xcodeproj -scheme beemed -destination 'platform=macOS' build
 
+# Build for watchOS simulator
+xcodebuild -project beemed.xcodeproj -scheme beemedWatch -destination 'platform=watchOS Simulator,name=Apple Watch Series 11 (46mm)' build
+
 # Run tests (when added)
-xcodebuild -project beemed.xcodeproj -scheme beemed -destination 'platform=iOS Simulator,name=iPhone 16' test
+xcodebuild -project beemed.xcodeproj -scheme beemed -destination 'platform=iOS Simulator,name=iPhone 17' test
 ```
 
 ## Architecture
@@ -46,7 +49,10 @@ xcodebuild -project beemed.xcodeproj -scheme beemed -destination 'platform=iOS S
 ## Key Files
 
 - `beemed/beemedApp.swift` - App entry point
-- `beemed/ContentView.swift` - Main UI
+- `beemed/Views/MainView.swift` - Main UI
+- `beemed/Services/WatchSessionManager.swift` - WatchConnectivity handling (iOS side)
+- `beemedWatch/beemedWatchApp.swift` - Watch app entry point
+- `beemedWatch/ContentView.swift` - Watch UI
 - `plans/master_plan.md` - Detailed implementation plan with milestones
 
 ## Development Milestones

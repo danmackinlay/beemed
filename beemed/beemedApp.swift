@@ -58,6 +58,15 @@ struct beemedApp: App {
             .environment(goalsManager)
             .environment(queueManager)
             .environment(syncManager)
+            .onAppear {
+                // Configure WatchSessionManager for watch communication
+                #if os(iOS)
+                WatchSessionManager.shared.configure(
+                    queueManager: queueManager,
+                    syncManager: syncManager
+                )
+                #endif
+            }
             .task {
                 // Flush queue on app launch
                 await syncManager.flush()
