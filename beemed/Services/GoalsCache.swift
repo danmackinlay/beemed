@@ -10,11 +10,11 @@ enum GoalsCache {
     private static let fileName = "cached_goals.json"
 
     private static var cacheFileURL: URL? {
-        guard let cachesDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else {
+        guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
             return nil
         }
 
-        let appDirectory = cachesDir.appendingPathComponent("beemed", isDirectory: true)
+        let appDirectory = appSupport.appendingPathComponent("beemed", isDirectory: true)
 
         // Ensure directory exists
         try? FileManager.default.createDirectory(at: appDirectory, withIntermediateDirectories: true)

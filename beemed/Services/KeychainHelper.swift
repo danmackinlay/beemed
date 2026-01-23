@@ -24,6 +24,7 @@ enum KeychainHelper {
 
         var addQuery = query
         addQuery[kSecValueData as String] = data
+        addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
 
         let status = SecItemAdd(addQuery as CFDictionary, nil)
         guard status == errSecSuccess else {

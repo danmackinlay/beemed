@@ -69,7 +69,4 @@ struct QueuedDatapoint: Codable, Identifiable {
         nextAttemptAt = Date(timeIntervalSinceNow: delay)
     }
 
-    mutating func recordSuccess() {
-        lastAttemptAt = Date()
-    }
 }

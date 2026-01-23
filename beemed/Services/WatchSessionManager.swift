@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import os
 import WatchConnectivity
 
 /// Manages WatchConnectivity session on iOS side.
@@ -52,7 +53,7 @@ final class WatchSessionManager: NSObject {
         do {
             try session.updateApplicationContext(["pinnedGoals": data])
         } catch {
-            print("Failed to send pinned goals to watch: \(error)")
+            Logger.watch.error("Failed to send pinned goals to watch: \(error.localizedDescription)")
         }
     }
 }
@@ -60,7 +61,7 @@ final class WatchSessionManager: NSObject {
 extension WatchSessionManager: WCSessionDelegate {
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         if let error {
-            print("WCSession activation failed: \(error)")
+            Logger.watch.error("WCSession activation failed: \(error.localizedDescription)")
             return
         }
 

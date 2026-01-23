@@ -31,17 +31,11 @@ final class SyncManager {
     private let monitor = NWPathMonitor()
     private let monitorQueue = DispatchQueue(label: "com.beemed.networkMonitor")
     private let queueManager: QueueManager
-    private var backgroundUploader: BackgroundUploader?
     private var isFlushing = false
 
     init(queueManager: QueueManager) {
         self.queueManager = queueManager
         startMonitoring()
-    }
-
-    /// Set the background uploader to use for all uploads
-    func setBackgroundUploader(_ uploader: BackgroundUploader) {
-        self.backgroundUploader = uploader
     }
 
     deinit {
@@ -72,20 +66,60 @@ final class SyncManager {
         guard !isFlushing else { return }
         guard !queueManager.queue.isEmpty else { return }
 
-        guard let uploader = backgroundUploader else {
-            Logger.sync.warning("flush() called but no BackgroundUploader configured")
-            return
-        }
-
         isFlushing = true
         let previousStatus = networkStatus
         networkStatus = .syncing
 
-        // Delegate all uploads to BackgroundUploader - single sending path
-        await uploader.submitPendingUploads()
+        Logger.sync.info("Flushing queue with \(self.queueManager.queue.count) items")
+
+        // Process items sequentially to avoid overwhelming the API
+        let itemsToRetry = queueManager.itemsReadyToRetry()
+        for item in itemsToRetry {
+            await uploadSingleItem(item)
+        }
 
         networkStatus = previousStatus == .syncing ? .online : previousStatus
         isFlushing = false
+    }
+
+    private func uploadSingleItem(_ item: QueuedDatapoint) async {
+        do {
+            try await BeeminderClient.createDatapoint(
+                goalSlug: item.goalSlug,
+                value: item.value,
+                timestamp: item.timestamp,
+                comment: item.comment,
+                requestid: item.id.uuidString
+            )
+            Logger.sync.debug("Upload succeeded for \(item.id.uuidString.prefix(8))")
+            queueManager.dequeue(id: item.id)
+            lastSuccessPerGoal[item.goalSlug] = Date()
+
+        } catch BeeminderClient.APIError.unauthorized {
+            Logger.sync.warning("Auth failed for \(item.id.uuidString.prefix(8)) - removing item")
+            queueManager.dequeue(id: item.id)
+
+        } catch BeeminderClient.APIError.httpError(let statusCode) where statusCode == 409 {
+            // Duplicate requestid - treat as success
+            Logger.sync.debug("Duplicate (409) for \(item.id.uuidString.prefix(8))")
+            queueManager.dequeue(id: item.id)
+            lastSuccessPerGoal[item.goalSlug] = Date()
+
+        } catch BeeminderClient.APIError.httpError(let statusCode) where statusCode == 422 {
+            // Validation error - non-retryable, remove from queue
+            Logger.sync.warning("Validation error (422) for \(item.id.uuidString.prefix(8)) - removing item")
+            queueManager.dequeue(id: item.id)
+
+        } catch BeeminderClient.APIError.httpError(let statusCode) where statusCode >= 500 {
+            // Server error - retryable
+            Logger.sync.warning("Server error (\(statusCode)) for \(item.id.uuidString.prefix(8)) - will retry")
+            queueManager.markAttempt(id: item.id, error: "Server error (HTTP \(statusCode))", httpStatus: statusCode, isRetryable: true)
+
+        } catch {
+            // Network or other error - retryable
+            Logger.sync.warning("Upload failed for \(item.id.uuidString.prefix(8)): \(error.localizedDescription)")
+            queueManager.markAttempt(id: item.id, error: error.localizedDescription, isRetryable: true)
+        }
     }
 
     func submitDatapoint(
@@ -105,24 +139,53 @@ final class SyncManager {
 
         Logger.sync.debug("Enqueued datapoint for \(goalSlug): value=\(value)")
 
-        // Mark as sending and trigger uploader
+        // Mark as sending
         sendingDatapoints.insert(datapoint.id)
 
-        // Trigger upload via BackgroundUploader
-        if let uploader = backgroundUploader {
-            await uploader.submitPendingUploads()
-        }
+        // Try immediate upload with inline await
+        do {
+            try await BeeminderClient.createDatapoint(
+                goalSlug: datapoint.goalSlug,
+                value: datapoint.value,
+                timestamp: datapoint.timestamp,
+                comment: datapoint.comment,
+                requestid: datapoint.id.uuidString
+            )
 
-        sendingDatapoints.remove(datapoint.id)
+            // Actual success - remove from queue
+            queueManager.dequeue(id: datapoint.id)
+            sendingDatapoints.remove(datapoint.id)
+            lastSuccessPerGoal[goalSlug] = Date()
+            Logger.sync.debug("Immediate upload succeeded for \(goalSlug)")
+            return .success(Date())
 
-        // Check if it was successfully uploaded (no longer in queue)
-        if queueManager.queue.first(where: { $0.id == datapoint.id }) == nil {
+        } catch BeeminderClient.APIError.unauthorized {
+            // Auth failed - remove item, surface error
+            queueManager.dequeue(id: datapoint.id)
+            sendingDatapoints.remove(datapoint.id)
+            Logger.sync.warning("Auth failed for \(goalSlug) - please sign in again")
+            return .failed("Please sign in again")
+
+        } catch BeeminderClient.APIError.httpError(let statusCode) where statusCode == 409 {
+            // Duplicate - treat as success
+            queueManager.dequeue(id: datapoint.id)
+            sendingDatapoints.remove(datapoint.id)
             lastSuccessPerGoal[goalSlug] = Date()
             return .success(Date())
-        }
 
-        // Still in queue (either failed or offline)
-        return .queued(queueManager.pendingCount(for: goalSlug))
+        } catch BeeminderClient.APIError.httpError(let statusCode) where statusCode == 422 {
+            // Validation error - non-retryable
+            queueManager.dequeue(id: datapoint.id)
+            sendingDatapoints.remove(datapoint.id)
+            return .failed("Validation error")
+
+        } catch {
+            // Network/server error - keep in queue for retry
+            queueManager.markAttempt(id: datapoint.id, error: error.localizedDescription, isRetryable: true)
+            sendingDatapoints.remove(datapoint.id)
+            Logger.sync.debug("Upload failed, queued for retry: \(error.localizedDescription)")
+            return .queued(queueManager.pendingCount(for: goalSlug))
+        }
     }
 
     func datapointState(for goalSlug: String) -> DatapointState {

@@ -111,17 +111,20 @@ final class QueueManager {
         Logger.persistence.debug("Batch processed \(results.count) items: \(successCount) succeeded, \(removeIds.count - successCount) dropped")
     }
 
-    func markAuthFailure(id: UUID) {
-        // Remove the item - user must re-authenticate
-        // Don't spin forever on expired tokens
-        queue.removeAll { $0.id == id }
-        saveToDisk()
+    private let stuckThreshold = 10
+
+    var stuckCount: Int {
+        queue.filter { $0.attemptCount >= stuckThreshold }.count
     }
 
-    func cleanupStaleItems() {
-        let maxAttempts = 10
-        queue.removeAll { $0.attemptCount >= maxAttempts }
+    var stuckItems: [QueuedDatapoint] {
+        queue.filter { $0.attemptCount >= stuckThreshold }
+    }
+
+    func clearStuckItems() {
+        queue.removeAll { $0.attemptCount >= stuckThreshold }
         saveToDisk()
+        Logger.persistence.info("Cleared stuck items")
     }
 
     func itemsReadyToRetry() -> [QueuedDatapoint] {
