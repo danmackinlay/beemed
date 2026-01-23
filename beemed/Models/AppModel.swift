@@ -61,7 +61,11 @@ final class AppModel {
     var session = SessionState()
     var goals = GoalsState()
     var queue = QueueState()
-    var networkStatus: NetworkState = .offline
+    var networkStatus: NetworkState {
+        if !pathSatisfied { return .offline }
+        if queue.isFlushing { return .syncing }
+        return .online
+    }
 
     // Track success per goal for UI feedback
     private(set) var lastSuccessPerGoal: [String: Date] = [:]
@@ -77,8 +81,8 @@ final class AppModel {
     private let monitor = NWPathMonitor()
     private let monitorQueue = DispatchQueue(label: "com.beemed.networkMonitor")
 
-    /// Tracks actual network path status separately from networkStatus (which becomes .syncing during flush)
-    @ObservationIgnored private var pathSatisfied: Bool = true
+    /// Tracks actual network path status (networkStatus is derived from this + queue.isFlushing)
+    private var pathSatisfied: Bool = false
 
     private let usernameKey = "beeminder_username"
 
@@ -350,8 +354,6 @@ final class AppModel {
         }
 
         queue.isFlushing = true
-        let previousStatus = networkStatus
-        networkStatus = .syncing
 
         Logger.sync.info("Flushing queue with \(self.queue.queuedCount) items")
 
@@ -365,7 +367,6 @@ final class AppModel {
         }
 
         await refreshQueueState()
-        networkStatus = previousStatus == .syncing ? .online : previousStatus
         queue.isFlushing = false
     }
 
@@ -414,10 +415,10 @@ final class AppModel {
                 )
 
             default:
-                Logger.sync.warning("Upload failed for \(item.id.uuidString.prefix(8)): \(error.localizedDescription ?? "Unknown")")
+                Logger.sync.warning("Upload failed for \(item.id.uuidString.prefix(8)): \(error.localizedDescription)")
                 try? await queueStore.markAttempt(
                     item.id,
-                    error: .retryable(error.localizedDescription ?? "Unknown error")
+                    error: .retryable(error.localizedDescription)
                 )
             }
 
@@ -473,7 +474,6 @@ final class AppModel {
                 let wasOffline = !self.pathSatisfied
 
                 self.pathSatisfied = nowOnline
-                self.networkStatus = nowOnline ? .online : .offline
 
                 // Trigger flush when we come back online
                 if wasOffline && nowOnline {

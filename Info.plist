@@ -8,7 +8,7 @@
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>CFBundleURLName</key>
-			<string>danmackinlay.name.beemed</string>
+			<string>name.danmackinlay.beemed</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>beemed</string>

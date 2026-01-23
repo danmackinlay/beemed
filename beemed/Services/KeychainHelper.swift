@@ -11,7 +11,7 @@ enum KeychainError: Error {
 }
 
 final class KeychainTokenStore: TokenStore, Sendable {
-    private let service = "danmackinlay.name.beemed"
+    private let service = "name.danmackinlay.beemed"
     private let accessTokenKey = "beeminder_access_token"
 
     init() {}
