@@ -92,7 +92,9 @@ struct SettingsView: View {
             .formStyle(.grouped)
             .searchable(text: $searchText, prompt: "Search goals")
             .navigationTitle("Settings")
+            #if os(macOS)
             .frame(minWidth: 400, minHeight: 300)
+            #endif
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

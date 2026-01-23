@@ -7,13 +7,9 @@ import Foundation
 
 struct QueueSnapshot: Sendable {
     let items: [QueuedDatapoint]
-    let readyCount: Int
-    let stuckCount: Int
 
     init(items: [QueuedDatapoint]) {
         self.items = items
-        self.readyCount = items.filter { $0.isReadyToRetry }.count
-        self.stuckCount = items.filter { $0.attemptCount >= 10 }.count
     }
 
     static let empty = QueueSnapshot(items: [])
@@ -42,6 +38,5 @@ protocol QueueStoreProtocol: Sendable {
     func removeMultiple(_ ids: Set<UUID>) async throws
     func allPending(oldestFirst: Bool) async throws -> [QueuedDatapoint]
     func itemsReadyToRetry() async throws -> [QueuedDatapoint]
-    func clearStuck() async throws
     func clearAll() async throws
 }

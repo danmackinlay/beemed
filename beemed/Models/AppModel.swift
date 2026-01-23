@@ -48,9 +48,7 @@ final class AppModel {
 
     struct QueueState: Equatable {
         var queuedCount: Int = 0
-        var failedCount: Int = 0
         var isFlushing: Bool = false
-        var lastFlushError: String?
     }
 
     // MARK: - Readiness
@@ -151,6 +149,9 @@ final class AppModel {
             session.tokenPresent = true
             session.username = result.username
             session.needsReauth = false
+
+            // Flush queue after successful reauth
+            await flushQueue()
         } catch {
             session.error = error.localizedDescription
         }
@@ -211,20 +212,6 @@ final class AppModel {
         goals.isLoading = false
     }
 
-    func togglePin(_ goalSlug: String) async {
-        if goals.pinned.contains(goalSlug) {
-            goals.pinned.remove(goalSlug)
-        } else {
-            goals.pinned.insert(goalSlug)
-        }
-
-        do {
-            try await goalsStore.savePinned(goals.pinned)
-        } catch {
-            Logger.persistence.error("Failed to save pinned goals: \(error.localizedDescription)")
-        }
-    }
-
     func setPinned(_ newPinned: Set<String>) async {
         goals.pinned = newPinned
         do {
@@ -268,6 +255,11 @@ final class AppModel {
 
         await refreshQueueState()
 
+        // If we need reauth, don't try uploading - keep in queue
+        if session.needsReauth {
+            return .queued(pendingCountByGoal[goalSlug] ?? 1)
+        }
+
         // Mark as sending
         sendingDatapoints.insert(datapoint.id)
 
@@ -298,11 +290,15 @@ final class AppModel {
 
             switch error {
             case .unauthorized:
-                try? await queueStore.remove(datapoint.id)
-                await refreshQueueState()
+                // Keep item in queue for retry after reauth
                 session.needsReauth = true
-                Logger.sync.warning("Auth failed for \(goalSlug)")
-                return .failed("Please sign in again")
+                try? await queueStore.markAttempt(
+                    datapoint.id,
+                    error: .retryable("Auth required - will retry after sign-in")
+                )
+                await refreshQueueState()
+                Logger.sync.warning("Auth failed for \(goalSlug) - keeping item for retry")
+                return .queued(pendingCountByGoal[goalSlug] ?? 1)
 
             case .httpError(let statusCode) where statusCode == 409:
                 // Duplicate - treat as success
@@ -345,6 +341,7 @@ final class AppModel {
     func flushQueue() async {
         guard !queue.isFlushing else { return }
         guard queue.queuedCount > 0 else { return }
+        guard !session.needsReauth else { return }
 
         guard let token = await tokenStore.load() else {
             session.needsReauth = true
@@ -363,7 +360,6 @@ final class AppModel {
                 await uploadSingleItem(item, token: token)
             }
         } catch {
-            queue.lastFlushError = error.localizedDescription
             Logger.sync.error("Failed to get items to retry: \(error.localizedDescription)")
         }
 
@@ -390,9 +386,13 @@ final class AppModel {
         } catch let error as APIError {
             switch error {
             case .unauthorized:
-                Logger.sync.warning("Auth failed for \(item.id.uuidString.prefix(8)) - removing item")
-                try? await queueStore.remove(item.id)
+                // Keep item in queue for retry after reauth
+                Logger.sync.warning("Auth failed for \(item.id.uuidString.prefix(8)) - keeping for retry")
                 session.needsReauth = true
+                try? await queueStore.markAttempt(
+                    item.id,
+                    error: .retryable("Auth required - will retry after sign-in")
+                )
 
             case .httpError(let statusCode) where statusCode == 409:
                 // Duplicate - treat as success
@@ -429,15 +429,6 @@ final class AppModel {
         }
     }
 
-    func clearStuckItems() async {
-        do {
-            try await queueStore.clearStuck()
-            await refreshQueueState()
-        } catch {
-            Logger.persistence.error("Failed to clear stuck items: \(error.localizedDescription)")
-        }
-    }
-
     /// Synchronous datapoint state computed from observable properties.
     /// Use this for UI binding.
     func datapointStateFor(_ goalSlug: String) -> DatapointState {
@@ -461,7 +452,6 @@ final class AppModel {
         do {
             let snapshot = try await queueStore.loadSnapshot()
             queue.queuedCount = snapshot.items.count
-            queue.failedCount = snapshot.stuckCount
 
             // Compute per-goal pending counts
             var counts: [String: Int] = [:]

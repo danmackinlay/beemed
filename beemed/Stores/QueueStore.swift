@@ -8,7 +8,6 @@ import os
 
 actor QueueStore: QueueStoreProtocol {
     private var queue: [QueuedDatapoint] = []
-    private let stuckThreshold = 10
 
     private static let fileName = "datapoint_queue.json"
 
@@ -72,12 +71,6 @@ actor QueueStore: QueueStoreProtocol {
 
     func itemsReadyToRetry() async throws -> [QueuedDatapoint] {
         queue.filter { $0.isReadyToRetry }
-    }
-
-    func clearStuck() async throws {
-        queue.removeAll { $0.attemptCount >= stuckThreshold }
-        saveToDisk()
-        Logger.persistence.info("Cleared stuck items from queue")
     }
 
     func clearAll() async throws {
