@@ -38,11 +38,6 @@
 			path = beemed;
 			sourceTree = "<group>";
 		};
-		379951B42F22623A00E332FF /* plans */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = plans;
-			sourceTree = "<group>";
-		};
 		37WATCH022F23000000E332FF /* beemedWatch */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = beemedWatch;
@@ -72,7 +67,6 @@
 			isa = PBXGroup;
 			children = (
 				379953042F238D5800E332FF /* Shared */,
-				379951B42F22623A00E332FF /* plans */,
 				372A021B2F22543100F850B9 /* beemed */,
 				37WATCH022F23000000E332FF /* beemedWatch */,
 				372A021A2F22543100F850B9 /* Products */,
@@ -114,7 +108,6 @@
 			);
 			fileSystemSynchronizedGroups = (
 				372A021B2F22543100F850B9 /* beemed */,
-				379951B42F22623A00E332FF /* plans */,
 			);
 			name = beemed;
 			packageProductDependencies = (
@@ -453,6 +446,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Beemed;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = name.danmackinlay.beemed;
+				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = NO;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -485,6 +479,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Beemed;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = name.danmackinlay.beemed;
+				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = NO;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

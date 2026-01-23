@@ -123,3 +123,145 @@ This is equivalent to configuring in the app delegate but with modern SwiftUI pa
 ### WatchConnectivity on macOS
 WatchSessionManager uses `#if canImport(WatchConnectivity)` to compile on macOS (where the
 framework doesn't exist). The macOS build excludes watch sync functionality entirely.
+
+
+## How to watchos
+
+Below is a current (2025/2026) summary of what you need to know to configure, validate, and, if needed, rebuild an iOS + WatchOS companion app setup in modern Xcode — based on the latest Apple documentation and practical guidance.
+
+This covers where the tooling actually expresses the relationship, what keys/settings matter, how builds/install behave, and how to repair it if things go bad.
+
+⸻
+
+1. What makes an iOS app + Watch app a companion pair
+
+The intent
+
+A companion watchOS app is one that is delivered, installed, and associated with an iOS app. Users expect:
+	•	The watch app to be installed when the iOS app is installed,
+	•	Both apps to be recognized as parts of a single product,
+	•	WatchConnectivity to work reliably.
+
+Xcode does not pair them by name prefix or by similar bundle IDs alone; the relationship has to be present in the project’s build metadata + Info.plist.
+
+⸻
+
+2. What Xcode uses as the source of truth
+
+In modern Xcode, the pairing relationship is controlled by Info.plist keys and target embedding metadata, not old UI checkboxes like “Host Application.”
+When you added your watch target using the Add Target → Watch App for iOS App template, Xcode should have:
+	1.	Created two targets:
+	•	Watch App
+	•	Watch App Extension (the code that runs on the watch)
+	2.	Configured the Info.plist of the watch app with a key:
+
+WKCompanionAppBundleIdentifier = YOUR_IOS_APP_BUNDLE_ID
+
+This key is the definitive signal that the watch app is the companion of your iOS app.
+
+Note: You might not see this file explicitly in the project navigator. To find it, look at Build Settings for the watch app target and inspect the Info.plist file path, or view it in the “Info” tab in Xcode.
+
+⸻
+
+3. What you must check for a valid companion setup
+
+These are the concrete things your project must have:
+
+A. Correct Info.plist keys
+
+Verify the watch app’s Info.plist contains:
+
+WKCompanionAppBundleIdentifier = com.yourcompany.youriOSApp
+
+If this is missing, the watch app will be treated as independent or standalone instead of companion.
+
+Most templates create it for you, but it’s easy to lose if you copied/renamed targets.
+
+B. Matching bundle identifier structure
+
+Typical modern conventions:
+
+iOS app bundle ID:       com.example.beemed
+WatchApp bundle ID:      com.example.beemed.watchapp
+Watch Extension bundle:  com.example.beemed.watchapp.extension
+
+The exact suffixes aren’t enforced but must be consistent and unique per target.
+
+C. “Supports Running Without iOS App Installation”
+
+This option in the watch target’s deployment settings now signifies independent watch app behavior when checked.
+If your intent is a companion app, this should generally be off so the system treats the watch app as dependent on the iOS host.
+
+In current Xcode the old UI field “Host Application” no longer appears; this behavior is now inferred from the above key instead.  
+
+⸻
+
+4. How the build & install system actually works
+
+Simulator
+	•	Paired Simulator Required
+You must launch a paired iPhone simulator and the corresponding watch simulator to test WatchConnectivity. The act of running the watch app on the paired watch simulator makes WCSession.default.isWatchAppInstalled == true because the watch process is running.
+	•	Xcode won’t auto-launch the watch app when running the phone app — you must run both builds.
+
+Real devices
+	•	If the watch app is configured as dependent (correct key and bundle IDs), installing the iOS app will install the watch app automatically on the paired Apple Watch.
+	•	If pairing/installation fails, WKCompanionAppBundleIdentifier is the first thing to check. Missing or incorrect values are the usual cause.
+
+⸻
+
+5. Rebuilding the companion relationship (if corrupted)
+
+If your project’s linkage appears broken (e.g., watch app installs standalone or doesn’t install with the iOS app), do the following reliably:
+
+Step A — Fix the bundle identifiers
+
+Set bundle IDs so that:
+	•	iOS app: com.example.beemed
+	•	Watch app: com.example.beemed.watchapp
+	•	Watch extension: com.example.beemed.watchapp.extension
+
+Consistency here reduces subtle install errors.
+
+Step B — Add/verify WKCompanionAppBundleIdentifier
+	1.	Open the watch app target’s Info.plist (or add one if missing).
+	2.	Ensure the key:
+
+WKCompanionAppBundleIdentifier
+
+exists with the iOS app’s bundle ID as value.
+
+If your project has no physical Info.plist for the watch target, create one and assign it in Build Settings → Info.plist File.
+
+Step C — Turn off “Supports Running Without iOS App Installation”
+
+Unless you intend a truly independent watch app, disable this in the watch target’s deployment settings.
+
+Step D — Clean + Full Rebuild
+	•	Clean build folder (Product → Clean Build Folder).
+	•	Delete derived data.
+	•	Rebuild both schemes.
+	•	Launch paired simulators and confirm that the watch app runs.
+	•	Check runtime:
+
+print(WCSession.default.isWatchAppInstalled)
+
+should be true after starting the watch app.
+
+⸻
+
+6. Final sanity checks
+	•	WatchConnectivity will only work if:
+	•	The watch app has been launched at least once on the paired simulator/device.
+	•	The watch app’s WKCompanionAppBundleIdentifier is correct.
+	•	The iOS app is running or can be launched on message receipt.
+	•	If messages never arrive but sims are paired, the likely missing piece is correct companion wiring in Info.plist.
+
+⸻
+
+Summary (as a single checklist)
+	1.	Two distinct targets: iOS app + watch app (+ watch extension)
+	2.	Watch Info.plist has WKCompanionAppBundleIdentifier = <iOS bundle ID>
+	3.	Watch bundle IDs consistent and correctly suffixed
+	4.	“Supports Running Without iOS App Installation” off (for companion)
+	5.	Launch both sides in paired simulator or device
+	6.	Runtime checks for WCSession flags
