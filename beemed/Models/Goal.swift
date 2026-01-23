@@ -5,7 +5,7 @@
 
 import Foundation
 
-struct Goal: Identifiable, Codable, Hashable {
+struct Goal: Identifiable, Codable, Hashable, Sendable {
     let slug: String
     let title: String
     let losedate: Int  // Unix timestamp from Beeminder API

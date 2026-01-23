@@ -6,7 +6,7 @@
 import SwiftUI
 
 struct LoginView: View {
-    @Environment(AuthState.self) private var authState
+    @Environment(AppModel.self) private var appModel
 
     var body: some View {
         VStack(spacing: 24) {
@@ -26,12 +26,12 @@ struct LoginView: View {
 
             Spacer()
 
-            if authState.isLoading {
+            if appModel.session.isLoading {
                 ProgressView("Signing in...")
             } else {
                 Button {
                     Task {
-                        await authState.signIn()
+                        await appModel.signIn()
                     }
                 } label: {
                     Label("Sign in with Beeminder", systemImage: "person.circle")
@@ -41,8 +41,8 @@ struct LoginView: View {
                 .controlSize(.large)
             }
 
-            if let error = authState.error {
-                Text(error.localizedDescription)
+            if let error = appModel.session.error {
+                Text(error)
                     .font(.caption)
                     .foregroundStyle(.red)
                     .multilineTextAlignment(.center)
@@ -57,5 +57,5 @@ struct LoginView: View {
 
 #Preview {
     LoginView()
-        .environment(AuthState())
+        .environment(AppModel())
 }

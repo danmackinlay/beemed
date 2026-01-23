@@ -9,53 +9,36 @@ import SwiftUI
 
 @main
 struct beemedApp: App {
-    @State private var authState: AuthState
-    @State private var goalsManager: GoalsManager
-    @State private var queueManager: QueueManager
-    @State private var syncManager: SyncManager
+    @State private var appModel = AppModel()
     @Environment(\.scenePhase) private var scenePhase
-
-    init() {
-        let queue = QueueManager()
-        let sync = SyncManager(queueManager: queue)
-
-        _authState = State(initialValue: AuthState())
-        _goalsManager = State(initialValue: GoalsManager())
-        _queueManager = State(initialValue: queue)
-        _syncManager = State(initialValue: sync)
-    }
 
     var body: some Scene {
         WindowGroup {
             Group {
-                if authState.isSignedIn {
+                if appModel.readiness == .cold {
+                    ProgressView("Loading...")
+                } else if appModel.session.tokenPresent && !appModel.session.needsReauth {
                     MainView()
                 } else {
                     LoginView()
                 }
             }
-            .environment(authState)
-            .environment(goalsManager)
-            .environment(queueManager)
-            .environment(syncManager)
+            .environment(appModel)
             .onAppear {
                 // Configure WatchSessionManager for watch communication
                 #if os(iOS)
-                WatchSessionManager.shared.configure(
-                    queueManager: queueManager,
-                    syncManager: syncManager
-                )
+                WatchSessionManager.shared.configure(appModel: appModel)
                 #endif
             }
             .task {
-                // Flush queue on app launch
-                await syncManager.flush()
+                // Initialize app state on launch
+                await appModel.start()
             }
             .onChange(of: scenePhase) { _, newPhase in
                 switch newPhase {
                 case .active:
                     Task {
-                        await syncManager.flush()
+                        await appModel.flushQueue()
                     }
                 case .background, .inactive:
                     break

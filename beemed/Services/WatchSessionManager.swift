@@ -17,16 +17,14 @@ final class WatchSessionManager: NSObject {
     private(set) var isReachable: Bool = false
 
     private var session: WCSession?
-    private var queueManager: QueueManager?
-    private var syncManager: SyncManager?
+    private weak var appModel: AppModel?
 
     private override init() {
         super.init()
     }
 
-    func configure(queueManager: QueueManager, syncManager: SyncManager) {
-        self.queueManager = queueManager
-        self.syncManager = syncManager
+    func configure(appModel: AppModel) {
+        self.appModel = appModel
 
         guard WCSession.isSupported() else { return }
 
@@ -99,10 +97,10 @@ extension WatchSessionManager: WCSessionDelegate {
         let comment = userInfo["comment"] as? String
 
         Task { @MainActor in
-            guard let syncManager else { return }
+            guard let appModel else { return }
 
-            // Submit datapoint using existing sync infrastructure
-            _ = await syncManager.submitDatapoint(
+            // Submit datapoint using AppModel
+            _ = await appModel.addDatapoint(
                 goalSlug: goalSlug,
                 value: value,
                 comment: comment

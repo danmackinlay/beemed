@@ -1,0 +1,497 @@
+//
+//  AppModel.swift
+//  beemed
+//
+
+import Foundation
+import Network
+import os
+
+enum NetworkState: Equatable {
+    case online
+    case offline
+    case syncing
+}
+
+enum DatapointState: Equatable {
+    case idle
+    case sending
+    case success(Date)
+    case queued(Int)
+    case failed(String)
+}
+
+@MainActor
+@Observable
+final class AppModel {
+    // MARK: - Session State
+
+    struct SessionState: Equatable {
+        var tokenPresent: Bool = false
+        var needsReauth: Bool = false
+        var username: String = ""
+        var isLoading: Bool = false
+        var error: String?
+    }
+
+    // MARK: - Goals State
+
+    struct GoalsState: Equatable {
+        var goals: [Goal] = []
+        var pinned: Set<String> = []
+        var lastRefresh: Date?
+        var isLoading: Bool = false
+        var error: String?
+    }
+
+    // MARK: - Queue State
+
+    struct QueueState: Equatable {
+        var queuedCount: Int = 0
+        var failedCount: Int = 0
+        var isFlushing: Bool = false
+        var lastFlushError: String?
+    }
+
+    // MARK: - Readiness
+
+    enum Readiness: Equatable { case cold, loaded }
+
+    // MARK: - Published State
+
+    var readiness: Readiness = .cold
+    var session = SessionState()
+    var goals = GoalsState()
+    var queue = QueueState()
+    var networkStatus: NetworkState = .offline
+
+    // Track sending state and success per goal for UI feedback
+    private(set) var sendingDatapoints: Set<UUID> = []
+    private(set) var lastSuccessPerGoal: [String: Date] = [:]
+
+    // MARK: - Dependencies
+
+    private let api: any BeeminderAPI
+    private let tokenStore: any TokenStore
+    private let queueStore: QueueStore
+    private let goalsStore: GoalsStore
+
+    private let monitor = NWPathMonitor()
+    private let monitorQueue = DispatchQueue(label: "com.beemed.networkMonitor")
+
+    private let usernameKey = "beeminder_username"
+
+    // MARK: - Init
+
+    init(
+        api: any BeeminderAPI = LiveBeeminderAPI(),
+        tokenStore: any TokenStore = KeychainTokenStore(),
+        queueStore: QueueStore = QueueStore(),
+        goalsStore: GoalsStore = GoalsStore()
+    ) {
+        self.api = api
+        self.tokenStore = tokenStore
+        self.queueStore = queueStore
+        self.goalsStore = goalsStore
+
+        startNetworkMonitoring()
+    }
+
+    deinit {
+        monitor.cancel()
+    }
+
+    // MARK: - Startup
+
+    func start() async {
+        // Load token state
+        let token = await tokenStore.load()
+        session.tokenPresent = token != nil
+        session.username = UserDefaults.standard.string(forKey: usernameKey) ?? ""
+
+        // Load goals from disk
+        do {
+            let snapshot = try await goalsStore.load()
+            goals.goals = snapshot.goals
+            goals.pinned = snapshot.pinned
+            goals.lastRefresh = snapshot.lastRefresh
+        } catch {
+            Logger.persistence.error("Failed to load goals: \(error.localizedDescription)")
+        }
+
+        // Load queue state
+        await refreshQueueState()
+
+        readiness = .loaded
+
+        // Flush queue if we have pending items
+        if queue.queuedCount > 0 {
+            await flushQueue()
+        }
+    }
+
+    // MARK: - Auth Operations
+
+    func signIn() async {
+        session.isLoading = true
+        session.error = nil
+
+        do {
+            let result = try await AuthService.signIn()
+
+            // Save token
+            try await tokenStore.save(result.accessToken)
+            UserDefaults.standard.set(result.username, forKey: usernameKey)
+
+            session.tokenPresent = true
+            session.username = result.username
+            session.needsReauth = false
+        } catch {
+            session.error = error.localizedDescription
+        }
+
+        session.isLoading = false
+    }
+
+    func signOut() async {
+        do {
+            try await tokenStore.clear()
+        } catch {
+            Logger.auth.error("Failed to clear token: \(error.localizedDescription)")
+        }
+
+        UserDefaults.standard.removeObject(forKey: usernameKey)
+
+        // Clear queue and goals
+        do {
+            try await queueStore.clearAll()
+            try await goalsStore.clear()
+        } catch {
+            Logger.persistence.error("Failed to clear data on sign out: \(error.localizedDescription)")
+        }
+
+        session = SessionState()
+        goals = GoalsState()
+        queue = QueueState()
+        lastSuccessPerGoal = [:]
+        sendingDatapoints = []
+    }
+
+    // MARK: - Goals Operations
+
+    func refreshGoals() async {
+        guard let token = await tokenStore.load() else {
+            session.needsReauth = true
+            return
+        }
+
+        goals.isLoading = true
+        goals.error = nil
+
+        do {
+            let fetchedGoals = try await api.fetchGoals(token: token)
+            let sorted = fetchedGoals.sorted { $0.updatedAt > $1.updatedAt }
+
+            try await goalsStore.saveGoals(sorted, at: Date())
+
+            goals.goals = sorted
+            goals.lastRefresh = Date()
+        } catch let error as APIError where error == .unauthorized {
+            session.needsReauth = true
+            goals.error = "Please sign in again"
+        } catch {
+            goals.error = error.localizedDescription
+        }
+
+        goals.isLoading = false
+    }
+
+    func togglePin(_ goalSlug: String) async {
+        if goals.pinned.contains(goalSlug) {
+            goals.pinned.remove(goalSlug)
+        } else {
+            goals.pinned.insert(goalSlug)
+        }
+
+        do {
+            try await goalsStore.savePinned(goals.pinned)
+        } catch {
+            Logger.persistence.error("Failed to save pinned goals: \(error.localizedDescription)")
+        }
+    }
+
+    func setPinned(_ newPinned: Set<String>) async {
+        goals.pinned = newPinned
+        do {
+            try await goalsStore.savePinned(newPinned)
+        } catch {
+            Logger.persistence.error("Failed to save pinned goals: \(error.localizedDescription)")
+        }
+    }
+
+    var pinnedGoals: [Goal] {
+        goals.goals.filter { goals.pinned.contains($0.slug) }
+    }
+
+    // MARK: - Datapoint Operations
+
+    func addDatapoint(
+        goalSlug: String,
+        value: Double,
+        timestamp: Date = Date(),
+        comment: String? = nil
+    ) async -> DatapointState {
+        guard let token = await tokenStore.load() else {
+            session.needsReauth = true
+            return .failed("Please sign in again")
+        }
+
+        // Create and enqueue datapoint for durability
+        let datapoint = QueuedDatapoint(
+            goalSlug: goalSlug,
+            value: value,
+            timestamp: timestamp,
+            comment: comment
+        )
+
+        do {
+            try await queueStore.enqueue(datapoint)
+        } catch {
+            Logger.persistence.error("Failed to enqueue datapoint: \(error.localizedDescription)")
+            return .failed("Failed to save")
+        }
+
+        await refreshQueueState()
+
+        // Mark as sending
+        sendingDatapoints.insert(datapoint.id)
+
+        Logger.sync.debug("Enqueued datapoint for \(goalSlug): value=\(value)")
+
+        // Try immediate upload
+        let request = CreateDatapointRequest(
+            goalSlug: goalSlug,
+            value: value,
+            timestamp: timestamp,
+            comment: comment,
+            requestid: datapoint.id.uuidString
+        )
+
+        do {
+            try await api.createDatapoint(token: token, request: request)
+
+            // Success - remove from queue
+            try await queueStore.remove(datapoint.id)
+            await refreshQueueState()
+            sendingDatapoints.remove(datapoint.id)
+            lastSuccessPerGoal[goalSlug] = Date()
+            Logger.sync.debug("Immediate upload succeeded for \(goalSlug)")
+            return .success(Date())
+
+        } catch let error as APIError {
+            sendingDatapoints.remove(datapoint.id)
+
+            switch error {
+            case .unauthorized:
+                try? await queueStore.remove(datapoint.id)
+                await refreshQueueState()
+                session.needsReauth = true
+                Logger.sync.warning("Auth failed for \(goalSlug)")
+                return .failed("Please sign in again")
+
+            case .httpError(let statusCode) where statusCode == 409:
+                // Duplicate - treat as success
+                try? await queueStore.remove(datapoint.id)
+                await refreshQueueState()
+                lastSuccessPerGoal[goalSlug] = Date()
+                return .success(Date())
+
+            case .httpError(let statusCode) where statusCode == 422:
+                // Validation error - non-retryable
+                try? await queueStore.remove(datapoint.id)
+                await refreshQueueState()
+                return .failed("Validation error")
+
+            default:
+                // Network/server error - keep in queue for retry
+                try? await queueStore.markAttempt(
+                    datapoint.id,
+                    error: .retryable(error.localizedDescription ?? "Unknown error")
+                )
+                await refreshQueueState()
+                Logger.sync.debug("Upload failed, queued for retry: \(error.localizedDescription ?? "Unknown")")
+                let count = await queueStore.pendingCount(for: goalSlug)
+                return .queued(count)
+            }
+
+        } catch {
+            sendingDatapoints.remove(datapoint.id)
+            try? await queueStore.markAttempt(
+                datapoint.id,
+                error: .retryable(error.localizedDescription)
+            )
+            await refreshQueueState()
+            Logger.sync.debug("Upload failed, queued for retry: \(error.localizedDescription)")
+            let count = await queueStore.pendingCount(for: goalSlug)
+            return .queued(count)
+        }
+    }
+
+    // MARK: - Queue Operations
+
+    func flushQueue() async {
+        guard !queue.isFlushing else { return }
+        guard queue.queuedCount > 0 else { return }
+
+        guard let token = await tokenStore.load() else {
+            session.needsReauth = true
+            return
+        }
+
+        queue.isFlushing = true
+        let previousStatus = networkStatus
+        networkStatus = .syncing
+
+        Logger.sync.info("Flushing queue with \(self.queue.queuedCount) items")
+
+        do {
+            let itemsToRetry = try await queueStore.itemsReadyToRetry()
+            for item in itemsToRetry {
+                await uploadSingleItem(item, token: token)
+            }
+        } catch {
+            queue.lastFlushError = error.localizedDescription
+            Logger.sync.error("Failed to get items to retry: \(error.localizedDescription)")
+        }
+
+        await refreshQueueState()
+        networkStatus = previousStatus == .syncing ? .online : previousStatus
+        queue.isFlushing = false
+    }
+
+    private func uploadSingleItem(_ item: QueuedDatapoint, token: String) async {
+        let request = CreateDatapointRequest(
+            goalSlug: item.goalSlug,
+            value: item.value,
+            timestamp: item.timestamp,
+            comment: item.comment,
+            requestid: item.id.uuidString
+        )
+
+        do {
+            try await api.createDatapoint(token: token, request: request)
+            Logger.sync.debug("Upload succeeded for \(item.id.uuidString.prefix(8))")
+            try await queueStore.remove(item.id)
+            lastSuccessPerGoal[item.goalSlug] = Date()
+
+        } catch let error as APIError {
+            switch error {
+            case .unauthorized:
+                Logger.sync.warning("Auth failed for \(item.id.uuidString.prefix(8)) - removing item")
+                try? await queueStore.remove(item.id)
+                session.needsReauth = true
+
+            case .httpError(let statusCode) where statusCode == 409:
+                // Duplicate - treat as success
+                Logger.sync.debug("Duplicate (409) for \(item.id.uuidString.prefix(8))")
+                try? await queueStore.remove(item.id)
+                lastSuccessPerGoal[item.goalSlug] = Date()
+
+            case .httpError(let statusCode) where statusCode == 422:
+                // Validation error - non-retryable
+                Logger.sync.warning("Validation error (422) for \(item.id.uuidString.prefix(8)) - removing item")
+                try? await queueStore.remove(item.id)
+
+            case .httpError(let statusCode) where statusCode >= 500:
+                Logger.sync.warning("Server error (\(statusCode)) for \(item.id.uuidString.prefix(8)) - will retry")
+                try? await queueStore.markAttempt(
+                    item.id,
+                    error: .retryable("Server error (HTTP \(statusCode))", status: statusCode)
+                )
+
+            default:
+                Logger.sync.warning("Upload failed for \(item.id.uuidString.prefix(8)): \(error.localizedDescription ?? "Unknown")")
+                try? await queueStore.markAttempt(
+                    item.id,
+                    error: .retryable(error.localizedDescription ?? "Unknown error")
+                )
+            }
+
+        } catch {
+            Logger.sync.warning("Upload failed for \(item.id.uuidString.prefix(8)): \(error.localizedDescription)")
+            try? await queueStore.markAttempt(
+                item.id,
+                error: .retryable(error.localizedDescription)
+            )
+        }
+    }
+
+    func clearStuckItems() async {
+        do {
+            try await queueStore.clearStuck()
+            await refreshQueueState()
+        } catch {
+            Logger.persistence.error("Failed to clear stuck items: \(error.localizedDescription)")
+        }
+    }
+
+    func pendingCount(for goalSlug: String) async -> Int {
+        await queueStore.pendingCount(for: goalSlug)
+    }
+
+    func datapointState(for goalSlug: String) async -> DatapointState {
+        let pending = await queueStore.pendingDatapoints(for: goalSlug)
+
+        // Check if any datapoint for this goal is currently sending
+        if pending.contains(where: { sendingDatapoints.contains($0.id) }) {
+            return .sending
+        }
+
+        // Check for pending items
+        if !pending.isEmpty {
+            if let lastError = pending.compactMap({ $0.lastError }).last {
+                return .failed(lastError)
+            }
+            return .queued(pending.count)
+        }
+
+        // Check for recent success
+        if let lastSuccess = lastSuccessPerGoal[goalSlug] {
+            return .success(lastSuccess)
+        }
+
+        return .idle
+    }
+
+    // MARK: - Private Helpers
+
+    private func refreshQueueState() async {
+        do {
+            let snapshot = try await queueStore.loadSnapshot()
+            queue.queuedCount = snapshot.items.count
+            queue.failedCount = snapshot.stuckCount
+        } catch {
+            Logger.persistence.error("Failed to refresh queue state: \(error.localizedDescription)")
+        }
+    }
+
+    private func startNetworkMonitoring() {
+        monitor.pathUpdateHandler = { [weak self] path in
+            Task { @MainActor in
+                guard let self else { return }
+                let wasOffline = self.networkStatus == .offline
+                self.networkStatus = path.status == .satisfied ? .online : .offline
+
+                // Trigger flush when we come back online
+                if wasOffline && self.networkStatus == .online {
+                    await self.flushQueue()
+                }
+            }
+        }
+        monitor.start(queue: monitorQueue)
+    }
+
+    var isOnline: Bool {
+        networkStatus == .online || networkStatus == .syncing
+    }
+}

@@ -7,24 +7,11 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(AuthState.self) private var authState
-    @Environment(GoalsManager.self) private var goalsManager
-    @Environment(QueueManager.self) private var queueManager
-    @AppStorage("pinnedGoalSlugs") private var pinnedGoalSlugsData: Data = Data()
+    @Environment(AppModel.self) private var appModel
     @State private var searchText: String = ""
 
-    private var pinnedGoalSlugs: Set<String> {
-        get {
-            (try? JSONDecoder().decode(Set<String>.self, from: pinnedGoalSlugsData)) ?? []
-        }
-    }
-
-    private func setPinnedGoalSlugs(_ slugs: Set<String>) {
-        pinnedGoalSlugsData = (try? JSONEncoder().encode(slugs)) ?? Data()
-    }
-
     private var allGoals: [Goal] {
-        goalsManager.goals
+        appModel.goals.goals
     }
 
     private var filteredGoals: [Goal] {
@@ -52,15 +39,19 @@ struct SettingsView: View {
                             }
                             Spacer()
                             Toggle("", isOn: Binding(
-                                get: { pinnedGoalSlugs.contains(goal.slug) },
+                                get: { appModel.goals.pinned.contains(goal.slug) },
                                 set: { isPinned in
-                                    var slugs = pinnedGoalSlugs
-                                    if isPinned {
-                                        slugs.insert(goal.slug)
-                                    } else {
-                                        slugs.remove(goal.slug)
+                                    Task {
+                                        if isPinned {
+                                            var newPinned = appModel.goals.pinned
+                                            newPinned.insert(goal.slug)
+                                            await appModel.setPinned(newPinned)
+                                        } else {
+                                            var newPinned = appModel.goals.pinned
+                                            newPinned.remove(goal.slug)
+                                            await appModel.setPinned(newPinned)
+                                        }
                                     }
-                                    setPinnedGoalSlugs(slugs)
                                 }
                             ))
                             .labelsHidden()
@@ -73,26 +64,26 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    LabeledContent("Connected as", value: authState.username)
+                    LabeledContent("Connected as", value: appModel.session.username)
                     Button {
                         Task {
-                            await goalsManager.fetchGoals()
+                            await appModel.refreshGoals()
                         }
                     } label: {
                         HStack {
                             Text("Refresh Goals")
                             Spacer()
-                            if goalsManager.isLoading {
+                            if appModel.goals.isLoading {
                                 ProgressView()
                             }
                         }
                     }
-                    .disabled(goalsManager.isLoading)
+                    .disabled(appModel.goals.isLoading)
                     Button("Sign Out", role: .destructive) {
-                        queueManager.clearQueue()
-                        goalsManager.clearCache()
-                        authState.signOut()
-                        dismiss()
+                        Task {
+                            await appModel.signOut()
+                            dismiss()
+                        }
                     }
                 } header: {
                     Text("Account")
@@ -118,7 +109,5 @@ struct SettingsView: View {
 
 #Preview {
     SettingsView()
-        .environment(AuthState())
-        .environment(GoalsManager())
-        .environment(QueueManager())
+        .environment(AppModel())
 }
