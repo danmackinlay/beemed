@@ -6,7 +6,7 @@
 import SwiftUI
 
 struct GoalRowView: View {
-    let goal: WatchGoal
+    let goal: GoalSummary
     let onTap: () -> Void
 
     var body: some View {
@@ -41,7 +41,7 @@ struct GoalRowView: View {
 #Preview {
     List {
         GoalRowView(
-            goal: WatchGoal(
+            goal: GoalSummary(
                 slug: "exercise",
                 title: "Daily Exercise",
                 losedate: Int(Date().addingTimeInterval(3600 * 5).timeIntervalSince1970)
@@ -49,7 +49,7 @@ struct GoalRowView: View {
             onTap: {}
         )
         GoalRowView(
-            goal: WatchGoal(
+            goal: GoalSummary(
                 slug: "reading",
                 title: "Read Books",
                 losedate: Int(Date().addingTimeInterval(3600 * 48).timeIntervalSince1970)

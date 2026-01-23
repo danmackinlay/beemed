@@ -1,13 +1,13 @@
 //
-//  WatchGoal.swift
+//  GoalSummary.swift
 //  beemed
 //
-//  Shared between iOS and watchOS targets
+//  Lightweight goal DTO for WatchConnectivity transfer
 
 import Foundation
 
-/// Lightweight goal structure for watch communication
-struct WatchGoal: Identifiable, Codable, Sendable {
+/// Lightweight goal structure for cross-process communication
+struct GoalSummary: Identifiable, Codable, Sendable {
     let slug: String
     let title: String
     let losedate: Int
@@ -16,7 +16,7 @@ struct WatchGoal: Identifiable, Codable, Sendable {
 }
 
 /// Urgency level based on time until derailment
-enum WatchGoalUrgency {
+enum GoalUrgency {
     case critical  // < 24h
     case warning   // < 72h
     case safe      // >= 72h

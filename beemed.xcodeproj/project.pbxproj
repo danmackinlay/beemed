@@ -8,14 +8,11 @@
 
 /* Begin PBXBuildFile section */
 		379952572F22D81A00E332FF /* beemed_icon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 379952562F22D81A00E332FF /* beemed_icon.icon */; };
-		379953052F238D5800E332FF /* WatchGoal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 379953032F238D5800E332FF /* WatchGoal.swift */; };
-		379953062F238D5800E332FF /* WatchGoal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 379953032F238D5800E332FF /* WatchGoal.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		372A02192F22543100F850B9 /* beemed.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = beemed.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		379952562F22D81A00E332FF /* beemed_icon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = beemed_icon.icon; sourceTree = "<group>"; };
-		379953032F238D5800E332FF /* WatchGoal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchGoal.swift; sourceTree = "<group>"; };
 		37WATCH012F23000000E332FF /* beemedWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = beemedWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -23,6 +20,7 @@
 		3799530A2F2391BB00E332FF /* Exceptions for "beemed" folder in "beemedWatch" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Models/GoalSummary.swift,
 				Utilities/Logging.swift,
 			);
 			target = 37WATCH042F23000000E332FF /* beemedWatch */;
@@ -66,7 +64,6 @@
 		372A02102F22543100F850B9 = {
 			isa = PBXGroup;
 			children = (
-				379953042F238D5800E332FF /* Shared */,
 				372A021B2F22543100F850B9 /* beemed */,
 				37WATCH022F23000000E332FF /* beemedWatch */,
 				372A021A2F22543100F850B9 /* Products */,
@@ -81,14 +78,6 @@
 				37WATCH012F23000000E332FF /* beemedWatch.app */,
 			);
 			name = Products;
-			sourceTree = "<group>";
-		};
-		379953042F238D5800E332FF /* Shared */ = {
-			isa = PBXGroup;
-			children = (
-				379953032F238D5800E332FF /* WatchGoal.swift */,
-			);
-			path = Shared;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -199,7 +188,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				379953062F238D5800E332FF /* WatchGoal.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -207,7 +195,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				379953052F238D5800E332FF /* WatchGoal.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

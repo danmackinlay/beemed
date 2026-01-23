@@ -22,7 +22,7 @@ struct beemedWatchApp: App {
 /// Observable state for watch app, manages WCSession and received goals
 @Observable
 final class WatchState: NSObject {
-    var goals: [WatchGoal] = []
+    var goals: [GoalSummary] = []
     var isConnected: Bool = false
     var lastSentGoal: String?
     var showingConfirmation: Bool = false
@@ -97,17 +97,17 @@ extension WatchState: WCSessionDelegate {
 
     private func decodeGoals(from data: Data) {
         let decoder = JSONDecoder()
-        if let decoded = try? decoder.decode([WatchGoal].self, from: data) {
+        if let decoded = try? decoder.decode([GoalSummary].self, from: data) {
             self.goals = decoded
         }
     }
 }
 
-// MARK: - WatchGoal Extensions
+// MARK: - GoalSummary Extensions
 
-extension WatchGoal {
+extension GoalSummary {
     var urgencyColor: Color {
-        switch WatchGoalUrgency(losedate: losedate) {
+        switch GoalUrgency(losedate: losedate) {
         case .critical: return .red
         case .warning: return .orange
         case .safe: return .yellow

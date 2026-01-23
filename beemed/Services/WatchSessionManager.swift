@@ -43,12 +43,12 @@ final class WatchSessionManager: NSObject {
         guard session.isWatchAppInstalled else { return }
         #endif
 
-        let watchGoals = goals.map { goal in
-            WatchGoal(slug: goal.slug, title: goal.title, losedate: goal.losedate)
+        let summaries = goals.map { goal in
+            GoalSummary(slug: goal.slug, title: goal.title, losedate: goal.losedate)
         }
 
         let encoder = JSONEncoder()
-        guard let data = try? encoder.encode(watchGoals) else { return }
+        guard let data = try? encoder.encode(summaries) else { return }
 
         do {
             try session.updateApplicationContext(["pinnedGoals": data])
