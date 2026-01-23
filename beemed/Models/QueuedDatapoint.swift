@@ -5,6 +5,20 @@
 
 import Foundation
 
+struct SyncError: Codable {
+    let message: String
+    let httpStatus: Int?
+    let isRetryable: Bool
+    let timestamp: Date
+
+    init(message: String, httpStatus: Int? = nil, isRetryable: Bool = true) {
+        self.message = message
+        self.httpStatus = httpStatus
+        self.isRetryable = isRetryable
+        self.timestamp = Date()
+    }
+}
+
 struct QueuedDatapoint: Codable, Identifiable {
     let id: UUID           // Also used as Beeminder requestid for idempotency
     let goalSlug: String
@@ -13,6 +27,7 @@ struct QueuedDatapoint: Codable, Identifiable {
     let comment: String?
     var attemptCount: Int
     var lastError: String?
+    var lastSyncError: SyncError?
     let createdAt: Date
     var nextAttemptAt: Date?
     var lastAttemptAt: Date?
@@ -30,6 +45,7 @@ struct QueuedDatapoint: Codable, Identifiable {
         self.comment = comment
         self.attemptCount = 0
         self.lastError = nil
+        self.lastSyncError = nil
         self.createdAt = Date()
         self.nextAttemptAt = nil
         self.lastAttemptAt = nil
@@ -41,9 +57,10 @@ struct QueuedDatapoint: Codable, Identifiable {
     }
 
     // Backoff: 1m, 5m, 20m, 1h, 1h, 1h...
-    mutating func recordFailure(error: String) {
+    mutating func recordFailure(error: String, httpStatus: Int? = nil, isRetryable: Bool = true) {
         attemptCount += 1
         lastError = error
+        lastSyncError = SyncError(message: error, httpStatus: httpStatus, isRetryable: isRetryable)
         lastAttemptAt = Date()
 
         let backoffMinutes: [Double] = [1, 5, 20, 60, 60, 60]

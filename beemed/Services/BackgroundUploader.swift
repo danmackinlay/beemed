@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import os
 
 @MainActor
 final class BackgroundUploader: NSObject {
@@ -19,6 +20,8 @@ final class BackgroundUploader: NSObject {
     private let queueManager: QueueManager
     private var pendingTaskIds: [Int: UUID] = [:] // URLSession task ID -> QueuedDatapoint ID
     private var responseData: [Int: Data] = [:] // Collect response body for error analysis
+    private var batchResults: [QueueManager.BatchResult] = [] // Collect results for batch processing
+    private var batchStartCount: Int = 0 // How many tasks were started in current batch
 
     init(queueManager: QueueManager) {
         self.queueManager = queueManager
@@ -26,12 +29,24 @@ final class BackgroundUploader: NSObject {
     }
 
     func submitPendingUploads() async {
-        guard let token = KeychainHelper.loadToken() else { return }
+        guard let token = KeychainHelper.loadToken() else {
+            Logger.sync.warning("No auth token available for upload")
+            return
+        }
 
         // Clean up stale items before processing
         queueManager.cleanupStaleItems()
 
-        for datapoint in queueManager.itemsReadyToRetry() {
+        let itemsToRetry = queueManager.itemsReadyToRetry()
+        guard !itemsToRetry.isEmpty else {
+            Logger.sync.debug("No items ready to retry")
+            return
+        }
+
+        Logger.sync.info("Starting upload batch with \(itemsToRetry.count) items")
+        batchStartCount = 0
+
+        for datapoint in itemsToRetry {
             // Skip if already being uploaded
             guard !pendingTaskIds.values.contains(datapoint.id) else { continue }
 
@@ -39,8 +54,11 @@ final class BackgroundUploader: NSObject {
 
             let task = session.dataTask(with: request)
             pendingTaskIds[task.taskIdentifier] = datapoint.id
+            batchStartCount += 1
             task.resume()
         }
+
+        Logger.sync.debug("Started \(self.batchStartCount) upload tasks")
     }
 
     private func buildRequest(for datapoint: QueuedDatapoint, token: String) -> URLRequest? {
@@ -75,32 +93,50 @@ final class BackgroundUploader: NSObject {
         let data = responseData.removeValue(forKey: taskIdentifier)
 
         let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+        let result: QueueManager.BatchResult
 
         switch statusCode {
         case 200...299:
             // Explicit success
-            queueManager.dequeue(id: datapointId)
+            Logger.sync.debug("Upload succeeded for \(datapointId.uuidString.prefix(8))")
+            result = .success(id: datapointId)
 
         case 409:
             // Duplicate - treat as success (requestid already processed)
-            queueManager.dequeue(id: datapointId)
+            Logger.sync.debug("Upload duplicate (409) for \(datapointId.uuidString.prefix(8))")
+            result = .success(id: datapointId)
 
         case 401:
             // Auth expired - remove item, user must re-auth
-            queueManager.markAuthFailure(id: datapointId)
+            Logger.sync.warning("Auth failed (401) for \(datapointId.uuidString.prefix(8))")
+            result = .failure(id: datapointId, error: "Authentication expired", httpStatus: 401, isRetryable: false)
 
         case 422:
             // Validation error - check if "already exists" (duplicate)
             if responseContainsDuplicateMessage(data) {
-                queueManager.dequeue(id: datapointId)
+                Logger.sync.debug("Upload duplicate (422) for \(datapointId.uuidString.prefix(8))")
+                result = .success(id: datapointId)
             } else {
-                queueManager.markAttempt(id: datapointId, error: "Validation error (HTTP 422)")
+                Logger.sync.warning("Validation error (422) for \(datapointId.uuidString.prefix(8))")
+                result = .failure(id: datapointId, error: "Validation error (HTTP 422)", httpStatus: 422, isRetryable: true)
             }
 
         default:
             // Transient failure - apply backoff
             let errorMsg = error?.localizedDescription ?? "HTTP \(statusCode)"
-            queueManager.markAttempt(id: datapointId, error: errorMsg)
+            Logger.sync.warning("Upload failed for \(datapointId.uuidString.prefix(8)): \(errorMsg)")
+            result = .failure(id: datapointId, error: errorMsg, httpStatus: statusCode, isRetryable: true)
+        }
+
+        // Collect result for batch processing
+        batchResults.append(result)
+
+        // When all tasks from this batch are done, apply results in batch
+        if pendingTaskIds.isEmpty && !batchResults.isEmpty {
+            Logger.sync.info("Batch complete, applying \(self.batchResults.count) results")
+            queueManager.applyBatchResults(batchResults)
+            batchResults.removeAll()
+            batchStartCount = 0
         }
     }
 

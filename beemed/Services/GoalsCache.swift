@@ -4,16 +4,17 @@
 //
 
 import Foundation
+import os
 
 enum GoalsCache {
     private static let fileName = "cached_goals.json"
 
     private static var cacheFileURL: URL? {
-        guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+        guard let cachesDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else {
             return nil
         }
 
-        let appDirectory = appSupport.appendingPathComponent("beemed", isDirectory: true)
+        let appDirectory = cachesDir.appendingPathComponent("beemed", isDirectory: true)
 
         // Ensure directory exists
         try? FileManager.default.createDirectory(at: appDirectory, withIntermediateDirectories: true)
@@ -31,7 +32,7 @@ enum GoalsCache {
             let data = try encoder.encode(goals)
             try data.write(to: url, options: .atomic)
         } catch {
-            print("Failed to save goals cache: \(error)")
+            Logger.persistence.error("Failed to save goals cache: \(error.localizedDescription)")
         }
     }
 
@@ -48,7 +49,7 @@ enum GoalsCache {
             let data = try Data(contentsOf: url)
             return try decoder.decode([Goal].self, from: data)
         } catch {
-            print("Failed to load goals cache: \(error)")
+            Logger.persistence.error("Failed to load goals cache: \(error.localizedDescription)")
             return nil
         }
     }

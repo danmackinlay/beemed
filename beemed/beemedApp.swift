@@ -25,11 +25,15 @@ struct beemedApp: App {
     init() {
         let queue = QueueManager()
         let uploader = BackgroundUploader(queueManager: queue)
+        let sync = SyncManager(queueManager: queue)
+
+        // Wire BackgroundUploader into SyncManager as single upload path
+        sync.setBackgroundUploader(uploader)
 
         _authState = State(initialValue: AuthState())
         _goalsManager = State(initialValue: GoalsManager())
         _queueManager = State(initialValue: queue)
-        _syncManager = State(initialValue: SyncManager(queueManager: queue))
+        _syncManager = State(initialValue: sync)
         _backgroundUploader = State(initialValue: uploader)
 
         #if os(iOS)

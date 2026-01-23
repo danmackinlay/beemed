@@ -5,6 +5,7 @@
 
 import Foundation
 import Network
+import os
 
 enum NetworkState {
     case online
@@ -30,11 +31,17 @@ final class SyncManager {
     private let monitor = NWPathMonitor()
     private let monitorQueue = DispatchQueue(label: "com.beemed.networkMonitor")
     private let queueManager: QueueManager
+    private var backgroundUploader: BackgroundUploader?
     private var isFlushing = false
 
     init(queueManager: QueueManager) {
         self.queueManager = queueManager
         startMonitoring()
+    }
+
+    /// Set the background uploader to use for all uploads
+    func setBackgroundUploader(_ uploader: BackgroundUploader) {
+        self.backgroundUploader = uploader
     }
 
     deinit {
@@ -63,36 +70,21 @@ final class SyncManager {
 
     func flush() async {
         guard !isFlushing else { return }
-        guard networkStatus == .online else { return }
         guard !queueManager.queue.isEmpty else { return }
 
-        isFlushing = true
-        networkStatus = .syncing
-
-        // Process items sequentially to avoid overwhelming the API
-        for datapoint in queueManager.queue {
-            sendingDatapoints.insert(datapoint.id)
-
-            do {
-                try await BeeminderClient.createDatapoint(
-                    goalSlug: datapoint.goalSlug,
-                    value: datapoint.value,
-                    timestamp: datapoint.timestamp,
-                    comment: datapoint.comment,
-                    requestid: datapoint.id.uuidString
-                )
-                // Success - remove from queue
-                queueManager.dequeue(id: datapoint.id)
-                lastSuccessPerGoal[datapoint.goalSlug] = Date()
-            } catch {
-                // Failure - mark attempt and keep in queue
-                queueManager.markAttempt(id: datapoint.id, error: error.localizedDescription)
-            }
-
-            sendingDatapoints.remove(datapoint.id)
+        guard let uploader = backgroundUploader else {
+            Logger.sync.warning("flush() called but no BackgroundUploader configured")
+            return
         }
 
-        networkStatus = .online
+        isFlushing = true
+        let previousStatus = networkStatus
+        networkStatus = .syncing
+
+        // Delegate all uploads to BackgroundUploader - single sending path
+        await uploader.submitPendingUploads()
+
+        networkStatus = previousStatus == .syncing ? .online : previousStatus
         isFlushing = false
     }
 
@@ -111,33 +103,26 @@ final class SyncManager {
             comment: comment
         )
 
-        // If online, try to send immediately
-        if isOnline {
-            sendingDatapoints.insert(datapoint.id)
+        Logger.sync.debug("Enqueued datapoint for \(goalSlug): value=\(value)")
 
-            do {
-                try await BeeminderClient.createDatapoint(
-                    goalSlug: datapoint.goalSlug,
-                    value: datapoint.value,
-                    timestamp: datapoint.timestamp,
-                    comment: datapoint.comment,
-                    requestid: datapoint.id.uuidString
-                )
-                // Success - remove from queue
-                queueManager.dequeue(id: datapoint.id)
-                sendingDatapoints.remove(datapoint.id)
-                lastSuccessPerGoal[goalSlug] = Date()
-                return .success(Date())
-            } catch {
-                // Failed but still queued
-                queueManager.markAttempt(id: datapoint.id, error: error.localizedDescription)
-                sendingDatapoints.remove(datapoint.id)
-                return .queued(queueManager.pendingCount(for: goalSlug))
-            }
-        } else {
-            // Offline - item stays in queue
-            return .queued(queueManager.pendingCount(for: goalSlug))
+        // Mark as sending and trigger uploader
+        sendingDatapoints.insert(datapoint.id)
+
+        // Trigger upload via BackgroundUploader
+        if let uploader = backgroundUploader {
+            await uploader.submitPendingUploads()
         }
+
+        sendingDatapoints.remove(datapoint.id)
+
+        // Check if it was successfully uploaded (no longer in queue)
+        if queueManager.queue.first(where: { $0.id == datapoint.id }) == nil {
+            lastSuccessPerGoal[goalSlug] = Date()
+            return .success(Date())
+        }
+
+        // Still in queue (either failed or offline)
+        return .queued(queueManager.pendingCount(for: goalSlug))
     }
 
     func datapointState(for goalSlug: String) -> DatapointState {

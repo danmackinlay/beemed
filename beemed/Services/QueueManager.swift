@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import os
 
 @MainActor
 @Observable
@@ -46,11 +47,68 @@ final class QueueManager {
         saveToDisk()
     }
 
-    func markAttempt(id: UUID, error: String?) {
+    /// Batch dequeue multiple items - saves only once at the end
+    func dequeueMultiple(ids: Set<UUID>) {
+        guard !ids.isEmpty else { return }
+        queue.removeAll { ids.contains($0.id) }
+        saveToDisk()
+        Logger.persistence.debug("Batch dequeued \(ids.count) items")
+    }
+
+    func markAttempt(id: UUID, error: String?, httpStatus: Int? = nil, isRetryable: Bool = true) {
         if let index = queue.firstIndex(where: { $0.id == id }) {
-            queue[index].recordFailure(error: error ?? "Unknown error")
+            queue[index].recordFailure(error: error ?? "Unknown error", httpStatus: httpStatus, isRetryable: isRetryable)
             saveToDisk()
         }
+    }
+
+    /// Batch result for updating multiple items
+    struct BatchResult {
+        let id: UUID
+        let success: Bool
+        let error: String?
+        let httpStatus: Int?
+        let isRetryable: Bool
+
+        static func success(id: UUID) -> BatchResult {
+            BatchResult(id: id, success: true, error: nil, httpStatus: nil, isRetryable: true)
+        }
+
+        static func failure(id: UUID, error: String, httpStatus: Int? = nil, isRetryable: Bool = true) -> BatchResult {
+            BatchResult(id: id, success: false, error: error, httpStatus: httpStatus, isRetryable: isRetryable)
+        }
+    }
+
+    /// Batch update multiple items - saves only once at the end
+    func applyBatchResults(_ results: [BatchResult]) {
+        guard !results.isEmpty else { return }
+
+        var removeIds = Set<UUID>()
+
+        for result in results {
+            if result.success {
+                removeIds.insert(result.id)
+            } else if !result.isRetryable {
+                // Non-retryable failures (e.g., auth expired) - remove from queue
+                removeIds.insert(result.id)
+            } else if let index = queue.firstIndex(where: { $0.id == result.id }) {
+                // Retryable failure - record for backoff
+                queue[index].recordFailure(
+                    error: result.error ?? "Unknown error",
+                    httpStatus: result.httpStatus,
+                    isRetryable: result.isRetryable
+                )
+            }
+        }
+
+        // Remove successful and non-retryable items
+        if !removeIds.isEmpty {
+            queue.removeAll { removeIds.contains($0.id) }
+        }
+
+        saveToDisk()
+        let successCount = results.filter { $0.success }.count
+        Logger.persistence.debug("Batch processed \(results.count) items: \(successCount) succeeded, \(removeIds.count - successCount) dropped")
     }
 
     func markAuthFailure(id: UUID) {
@@ -102,7 +160,7 @@ final class QueueManager {
             let data = try Data(contentsOf: url)
             queue = try decoder.decode([QueuedDatapoint].self, from: data)
         } catch {
-            print("Failed to load queue: \(error)")
+            Logger.persistence.error("Failed to load queue: \(error.localizedDescription)")
         }
     }
 
@@ -116,7 +174,7 @@ final class QueueManager {
             let data = try encoder.encode(queue)
             try data.write(to: url, options: .atomic)
         } catch {
-            print("Failed to save queue: \(error)")
+            Logger.persistence.error("Failed to save queue: \(error.localizedDescription)")
         }
     }
 }
