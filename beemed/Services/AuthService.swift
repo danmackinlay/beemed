@@ -21,9 +21,10 @@ private class WebAuthContextProvider: NSObject, ASWebAuthenticationPresentationC
             ?? NSApplication.shared.windows.first
             ?? NSWindow()
         #else
-        return UIApplication.shared.connectedScenes
+        let scene = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
-            .first?.windows.first ?? UIWindow()
+            .first!
+        return scene.keyWindow ?? scene.windows.first ?? UIWindow(windowScene: scene)
         #endif
     }
 }
