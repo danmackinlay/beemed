@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 90;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -56,17 +56,13 @@
 /* Begin PBXFrameworksBuildPhase section */
 		372A02162F22543100F850B9 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		37WATCH032F23000000E332FF /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
@@ -80,6 +76,7 @@
 				379952562F22D81A00E332FF /* beemed_icon.icon */,
 			);
 			sourceTree = "<group>";
+			usesTabs = 0;
 		};
 		372A021A2F22543100F850B9 /* Products */ = {
 			isa = PBXGroup;
@@ -110,8 +107,6 @@
 				372A021B2F22543100F850B9 /* beemed */,
 			);
 			name = beemed;
-			packageProductDependencies = (
-			);
 			productName = beemed;
 			productReference = 372A02192F22543100F850B9 /* beemed.app */;
 			productType = "com.apple.product-type.application";
@@ -126,14 +121,10 @@
 			);
 			buildRules = (
 			);
-			dependencies = (
-			);
 			fileSystemSynchronizedGroups = (
 				37WATCH022F23000000E332FF /* beemedWatch */,
 			);
 			name = beemedWatch;
-			packageProductDependencies = (
-			);
 			productName = beemedWatch;
 			productReference = 37WATCH012F23000000E332FF /* beemedWatch.app */;
 			productType = "com.apple.product-type.application";
@@ -147,6 +138,7 @@
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2620;
 				LastUpgradeCheck = 2620;
+				ORGANIZATIONNAME = "Daniel MacKinlay";
 				TargetAttributes = {
 					372A02182F22543100F850B9 = {
 						CreatedOnToolsVersion = 26.2;
@@ -165,7 +157,7 @@
 			);
 			mainGroup = 372A02102F22543100F850B9;
 			minimizedProjectReferenceProxies = 1;
-			preferredProjectObjectVersion = 77;
+			preferredProjectObjectVersion = 90;
 			productRefGroup = 372A021A2F22543100F850B9 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -179,35 +171,27 @@
 /* Begin PBXResourcesBuildPhase section */
 		372A02172F22543100F850B9 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				379952572F22D81A00E332FF /* beemed_icon.icon in Resources */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		37WATCH072F23000000E332FF /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		372A02152F22543100F850B9 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		37WATCH062F23000000E332FF /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
@@ -221,7 +205,7 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		372A02242F22543300F850B9 /* Debug */ = {
+		372A02242F22543300F850B9 /* Debug configuration for PBXProject "beemed" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -282,7 +266,7 @@
 			};
 			name = Debug;
 		};
-		372A02252F22543300F850B9 /* Release */ = {
+		372A02252F22543300F850B9 /* Release configuration for PBXProject "beemed" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -335,17 +319,17 @@
 			};
 			name = Release;
 		};
-		372A02272F22543300F850B9 /* Debug */ = {
+		372A02272F22543300F850B9 /* Debug configuration for PBXNativeTarget "beemed" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = beemed_icon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_ENTITLEMENTS = beemed/beemed.entitlements;
-				CODE_SIGN_STYLE = Manual;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
-				"DEVELOPMENT_TEAM[sdk=macosx*]" = "";
+				DEVELOPMENT_TEAM = L4D3TWC3A4;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
@@ -373,7 +357,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = name.danmackinlay.beemed;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -387,17 +370,17 @@
 			};
 			name = Debug;
 		};
-		372A02282F22543300F850B9 /* Release */ = {
+		372A02282F22543300F850B9 /* Release configuration for PBXNativeTarget "beemed" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = beemed_icon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_ENTITLEMENTS = beemed/beemed.entitlements;
-				CODE_SIGN_STYLE = Manual;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
-				"DEVELOPMENT_TEAM[sdk=macosx*]" = "";
+				DEVELOPMENT_TEAM = L4D3TWC3A4;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
@@ -425,7 +408,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = name.danmackinlay.beemed;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -439,7 +421,7 @@
 			};
 			name = Release;
 		};
-		37WATCH082F23000000E332FF /* Debug */ = {
+		37WATCH082F23000000E332FF /* Debug configuration for PBXNativeTarget "beemedWatch" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -447,7 +429,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = L4D3TWC3A4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Beemed;
@@ -472,7 +454,7 @@
 			};
 			name = Debug;
 		};
-		37WATCH092F23000000E332FF /* Release */ = {
+		37WATCH092F23000000E332FF /* Release configuration for PBXNativeTarget "beemedWatch" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -480,7 +462,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = L4D3TWC3A4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Beemed;
@@ -511,28 +493,25 @@
 		372A02142F22543100F850B9 /* Build configuration list for PBXProject "beemed" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				372A02242F22543300F850B9 /* Debug */,
-				372A02252F22543300F850B9 /* Release */,
+				372A02242F22543300F850B9 /* Debug configuration for PBXProject "beemed" */,
+				372A02252F22543300F850B9 /* Release configuration for PBXProject "beemed" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		372A02262F22543300F850B9 /* Build configuration list for PBXNativeTarget "beemed" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				372A02272F22543300F850B9 /* Debug */,
-				372A02282F22543300F850B9 /* Release */,
+				372A02272F22543300F850B9 /* Debug configuration for PBXNativeTarget "beemed" */,
+				372A02282F22543300F850B9 /* Release configuration for PBXNativeTarget "beemed" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		37WATCH052F23000000E332FF /* Build configuration list for PBXNativeTarget "beemedWatch" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				37WATCH082F23000000E332FF /* Debug */,
-				37WATCH092F23000000E332FF /* Release */,
+				37WATCH082F23000000E332FF /* Debug configuration for PBXNativeTarget "beemedWatch" */,
+				37WATCH092F23000000E332FF /* Release configuration for PBXNativeTarget "beemedWatch" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
