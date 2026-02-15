@@ -10,6 +10,16 @@
 		379952572F22D81A00E332FF /* beemed_icon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 379952562F22D81A00E332FF /* beemed_icon.icon */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		378DCB2B2F243F8F000CCCD3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 372A02112F22543100F850B9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 37WATCH042F23000000E332FF;
+			remoteInfo = beemedWatch;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		372A02192F22543100F850B9 /* beemed.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = beemed.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		379952562F22D81A00E332FF /* beemed_icon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = beemed_icon.icon; sourceTree = "<group>"; };
@@ -94,6 +104,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				378DCB2C2F243F8F000CCCD3 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				372A021B2F22543100F850B9 /* beemed */,
@@ -199,6 +210,15 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		378DCB2C2F243F8F000CCCD3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			platformFilter = ios;
+			target = 37WATCH042F23000000E332FF /* beemedWatch */;
+			targetProxy = 378DCB2B2F243F8F000CCCD3 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		372A02242F22543300F850B9 /* Debug */ = {
