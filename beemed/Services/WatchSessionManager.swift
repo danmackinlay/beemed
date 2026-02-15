@@ -20,6 +20,7 @@ final class WatchSessionManager: NSObject {
 
     private var session: WCSession?
     private weak var appModel: AppModel?
+    private var lastSentData: Data?
 
     private override init() {
         super.init()
@@ -50,6 +51,10 @@ final class WatchSessionManager: NSObject {
         let encoder = JSONEncoder()
         guard let data = try? encoder.encode(summaries) else { return }
 
+        // Skip if identical to last send
+        if data == lastSentData { return }
+        lastSentData = data
+
         do {
             try session.updateApplicationContext(["pinnedGoals": data])
         } catch {
@@ -70,6 +75,11 @@ extension WatchSessionManager: WCSessionDelegate {
             self.isWatchAppInstalled = session.isWatchAppInstalled
             #endif
             self.isReachable = session.isReachable
+
+            // Push current pinned goals on activation
+            if let appModel {
+                self.sendPinnedGoals(appModel.pinnedGoals)
+            }
         }
     }
 
@@ -85,9 +95,37 @@ extension WatchSessionManager: WCSessionDelegate {
         Task { @MainActor in
             self.isWatchAppInstalled = session.isWatchAppInstalled
             self.isReachable = session.isReachable
+
+            // Push current pinned goals when watch state changes
+            if let appModel {
+                self.sendPinnedGoals(appModel.pinnedGoals)
+            }
         }
     }
     #endif
+
+    /// Handle pull requests from watch
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void) {
+        if message["requestPinnedGoals"] as? Bool == true {
+            Task { @MainActor in
+                guard let appModel else {
+                    replyHandler([:])
+                    return
+                }
+
+                let summaries = appModel.pinnedGoals.map { goal in
+                    GoalSummary(slug: goal.slug, title: goal.title, losedate: goal.losedate)
+                }
+
+                let encoder = JSONEncoder()
+                if let data = try? encoder.encode(summaries) {
+                    replyHandler(["pinnedGoals": data])
+                } else {
+                    replyHandler([:])
+                }
+            }
+        }
+    }
 
     /// Receive +1 events from watch via transferUserInfo
     func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {

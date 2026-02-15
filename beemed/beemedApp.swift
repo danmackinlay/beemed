@@ -37,6 +37,9 @@ struct beemedApp: App {
             .onChange(of: scenePhase) { _, newPhase in
                 switch newPhase {
                 case .active:
+                    #if os(iOS)
+                    WatchSessionManager.shared.sendPinnedGoals(appModel.pinnedGoals)
+                    #endif
                     Task {
                         await appModel.flushQueue()
                         await appModel.refreshGoalsIfStale()

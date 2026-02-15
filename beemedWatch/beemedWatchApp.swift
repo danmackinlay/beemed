@@ -29,8 +29,16 @@ final class WatchState: NSObject {
 
     private var session: WCSession?
 
+    private static let pinnedGoalsKey = "pinnedGoalsData"
+
     override init() {
         super.init()
+
+        // Load cached goals before session setup so UI never flashes empty
+        if let cached = UserDefaults.standard.data(forKey: Self.pinnedGoalsKey) {
+            decodeGoals(from: cached, persist: false)
+        }
+
         setupSession()
     }
 
@@ -84,6 +92,11 @@ extension WatchState: WCSessionDelegate {
             if let data = session.receivedApplicationContext["pinnedGoals"] as? Data {
                 self.decodeGoals(from: data)
             }
+
+            // If still empty, try pulling from iPhone
+            if self.goals.isEmpty {
+                self.requestPinnedGoals()
+            }
         }
     }
 
@@ -95,11 +108,28 @@ extension WatchState: WCSessionDelegate {
         }
     }
 
-    private func decodeGoals(from data: Data) {
+    private func decodeGoals(from data: Data, persist: Bool = true) {
         let decoder = JSONDecoder()
         if let decoded = try? decoder.decode([GoalSummary].self, from: data) {
             self.goals = decoded
+            if persist {
+                UserDefaults.standard.set(data, forKey: Self.pinnedGoalsKey)
+            }
         }
+    }
+
+    /// Ask iPhone for current pinned goals (best-effort, requires reachability)
+    func requestPinnedGoals() {
+        guard let session, session.activationState == .activated, session.isReachable else { return }
+
+        session.sendMessage(["requestPinnedGoals": true], replyHandler: { response in
+            guard let data = response["pinnedGoals"] as? Data else { return }
+            Task { @MainActor in
+                self.decodeGoals(from: data)
+            }
+        }, errorHandler: { error in
+            Logger.watch.error("Failed to request pinned goals: \(error.localizedDescription)")
+        })
     }
 }
 

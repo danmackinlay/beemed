@@ -32,6 +32,15 @@ struct ContentView: View {
                 }
             }
             .navigationTitle("Beemed")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        watchState.requestPinnedGoals()
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                }
+            }
             .animation(.easeInOut(duration: 0.2), value: watchState.showingConfirmation)
         }
     }
