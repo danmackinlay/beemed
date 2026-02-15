@@ -190,6 +190,14 @@ final class AppModel {
 
     // MARK: - Goals Operations
 
+    func refreshGoalsIfStale(staleAfter: TimeInterval = 300) async {
+        guard session.tokenPresent, !session.needsReauth else { return }
+        if let last = goals.lastRefresh, Date().timeIntervalSince(last) < staleAfter {
+            return
+        }
+        await refreshGoals()
+    }
+
     func refreshGoals() async {
         guard let token = await tokenStore.load() else {
             session.needsReauth = true

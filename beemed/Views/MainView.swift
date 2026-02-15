@@ -58,6 +58,15 @@ struct MainView: View {
                                 }
                             )
                         }
+                        .safeAreaInset(edge: .bottom) {
+                            if let lastRefresh = appModel.goals.lastRefresh {
+                                Text(lastRefresh, format: .relative(presentation: .named))
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                            }
+                        }
                         .searchable(text: $searchText, prompt: "Search goals")
                         .refreshable {
                             await appModel.refreshGoals()
@@ -85,8 +94,8 @@ struct MainView: View {
                         Image(systemName: "gear")
                     }
                 }
-                if appModel.queue.queuedCount > 0 {
-                    ToolbarItem(placement: .status) {
+                ToolbarItem(placement: .status) {
+                    if appModel.queue.queuedCount > 0 {
                         HStack(spacing: 4) {
                             if appModel.networkStatus == .syncing {
                                 ProgressView()
@@ -112,9 +121,7 @@ struct MainView: View {
                 }
             }
             .task {
-                if appModel.goals.goals.isEmpty {
-                    await appModel.refreshGoals()
-                }
+                await appModel.refreshGoalsIfStale()
             }
             .onChange(of: appModel.networkStatus) { oldValue, newValue in
                 handleNetworkStatusChange(from: oldValue, to: newValue)

@@ -39,6 +39,7 @@ struct beemedApp: App {
                 case .active:
                     Task {
                         await appModel.flushQueue()
+                        await appModel.refreshGoalsIfStale()
                     }
                 case .background, .inactive:
                     break
