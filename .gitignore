@@ -20,3 +20,7 @@ Packages/
 # Secrets
 .env
 *.pem
+
+# Icon exports
+beemed_icon-*.png
+source_assets/
