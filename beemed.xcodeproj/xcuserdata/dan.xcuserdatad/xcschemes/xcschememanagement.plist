@@ -4,18 +4,24 @@
 <dict>
 	<key>SchemeUserState</key>
 	<dict>
-		<key>beemWatched Watch App.xcscheme_^#shared#^_</key>
+		<key>beemWatched Watch App.xcscheme</key>
 		<dict>
+			<key>isShown</key>
+			<false/>
 			<key>orderHint</key>
 			<integer>2</integer>
 		</dict>
 		<key>beemed.xcscheme_^#shared#^_</key>
 		<dict>
+			<key>isShown</key>
+			<true/>
 			<key>orderHint</key>
 			<integer>0</integer>
 		</dict>
 		<key>beemedWatch.xcscheme_^#shared#^_</key>
 		<dict>
+			<key>isShown</key>
+			<true/>
 			<key>orderHint</key>
 			<integer>1</integer>
 		</dict>
@@ -23,6 +29,11 @@
 	<key>SuppressBuildableAutocreation</key>
 	<dict>
 		<key>372A02182F22543100F850B9</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>37WATCH042F23000000E332FF</key>
 		<dict>
 			<key>primary</key>
 			<true/>
