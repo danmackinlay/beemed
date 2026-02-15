@@ -10,7 +10,7 @@ Beeminder Minimal Logger - a SwiftUI multiplatform app (iOS 26 + macOS 26, optio
 
 ```bash
 # Build for iOS simulator
-xcodebuild -project beemed.xcodeproj -scheme beemed -destination 'platform=iOS Simulator,name=iPhone 17' build
+xcodebuild -project beemed.xcodeproj -scheme beemed -destination 'platform=iOS Simulator,name=iPhone 16e' build
 
 # Build for macOS
 xcodebuild -project beemed.xcodeproj -scheme beemed -destination 'platform=macOS' build
@@ -19,7 +19,7 @@ xcodebuild -project beemed.xcodeproj -scheme beemed -destination 'platform=macOS
 xcodebuild -project beemed.xcodeproj -scheme beemedWatch -destination 'platform=watchOS Simulator,name=Apple Watch Series 11 (46mm)' build
 
 # Run tests (when added)
-xcodebuild -project beemed.xcodeproj -scheme beemed -destination 'platform=iOS Simulator,name=iPhone 17' test
+xcodebuild -project beemed.xcodeproj -scheme beemed -destination 'platform=iOS Simulator,name=iPhone 16e' test
 ```
 
 ## Architecture

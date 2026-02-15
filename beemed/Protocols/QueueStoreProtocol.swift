@@ -5,7 +5,7 @@
 
 import Foundation
 
-struct QueueSnapshot: Sendable {
+nonisolated struct QueueSnapshot: Sendable {
     let items: [QueuedDatapoint]
 
     init(items: [QueuedDatapoint]) {
@@ -15,7 +15,7 @@ struct QueueSnapshot: Sendable {
     static let empty = QueueSnapshot(items: [])
 }
 
-struct UploadError: Sendable {
+nonisolated struct UploadError: Sendable {
     let message: String
     let httpStatus: Int?
     let isRetryable: Bool

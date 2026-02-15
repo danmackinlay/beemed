@@ -11,11 +11,11 @@ actor GoalsStore: GoalsStoreProtocol {
     private var pinned: Set<String> = []
     private var lastRefresh: Date?
 
-    private static let goalsFileName = "cached_goals.json"
-    private static let pinnedFileName = "pinned_goals.json"
-    private static let lastRefreshFileName = "goals_last_refresh.json"
+    nonisolated private static let goalsFileName = "cached_goals.json"
+    nonisolated private static let pinnedFileName = "pinned_goals.json"
+    nonisolated private static let lastRefreshFileName = "goals_last_refresh.json"
 
-    private static var appDirectory: URL? {
+    nonisolated private static var appDirectory: URL? {
         guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
             return nil
         }
@@ -24,9 +24,9 @@ actor GoalsStore: GoalsStoreProtocol {
         return dir
     }
 
-    private static var goalsFileURL: URL? { appDirectory?.appendingPathComponent(goalsFileName) }
-    private static var pinnedFileURL: URL? { appDirectory?.appendingPathComponent(pinnedFileName) }
-    private static var lastRefreshFileURL: URL? { appDirectory?.appendingPathComponent(lastRefreshFileName) }
+    nonisolated private static var goalsFileURL: URL? { appDirectory?.appendingPathComponent(goalsFileName) }
+    nonisolated private static var pinnedFileURL: URL? { appDirectory?.appendingPathComponent(pinnedFileName) }
+    nonisolated private static var lastRefreshFileURL: URL? { appDirectory?.appendingPathComponent(lastRefreshFileName) }
 
     init() {}
 

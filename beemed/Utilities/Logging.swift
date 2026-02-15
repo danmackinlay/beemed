@@ -6,10 +6,10 @@
 import os
 
 extension Logger {
-    private static let subsystem = "name.danmackinlay.beemed"
+    nonisolated private static let subsystem = "name.danmackinlay.beemed"
 
-    static let sync = Logger(subsystem: subsystem, category: "sync")
-    static let persistence = Logger(subsystem: subsystem, category: "persistence")
-    static let auth = Logger(subsystem: subsystem, category: "auth")
-    static let watch = Logger(subsystem: subsystem, category: "watch")
+    nonisolated static let sync = Logger(subsystem: subsystem, category: "sync")
+    nonisolated static let persistence = Logger(subsystem: subsystem, category: "persistence")
+    nonisolated static let auth = Logger(subsystem: subsystem, category: "auth")
+    nonisolated static let watch = Logger(subsystem: subsystem, category: "watch")
 }

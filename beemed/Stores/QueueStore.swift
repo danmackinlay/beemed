@@ -9,9 +9,9 @@ import os
 actor QueueStore: QueueStoreProtocol {
     private var queue: [QueuedDatapoint] = []
 
-    private static let fileName = "datapoint_queue.json"
+    nonisolated private static let fileName = "datapoint_queue.json"
 
-    private static var queueFileURL: URL? {
+    nonisolated private static var queueFileURL: URL? {
         guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
             return nil
         }

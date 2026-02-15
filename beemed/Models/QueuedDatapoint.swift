@@ -5,7 +5,7 @@
 
 import Foundation
 
-struct SyncError: Codable, Sendable {
+nonisolated struct SyncError: Codable, Sendable {
     let message: String
     let httpStatus: Int?
     let isRetryable: Bool
@@ -19,7 +19,7 @@ struct SyncError: Codable, Sendable {
     }
 }
 
-struct QueuedDatapoint: Codable, Identifiable, Sendable {
+nonisolated struct QueuedDatapoint: Codable, Identifiable, Sendable {
     let id: UUID           // Also used as Beeminder requestid for idempotency
     let goalSlug: String
     let value: Double

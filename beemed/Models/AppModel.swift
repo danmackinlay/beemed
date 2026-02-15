@@ -89,15 +89,15 @@ final class AppModel {
     // MARK: - Init
 
     init(
-        api: any BeeminderAPI = LiveBeeminderAPI(),
-        tokenStore: any TokenStore = KeychainTokenStore(),
-        queueStore: any QueueStoreProtocol = QueueStore(),
-        goalsStore: any GoalsStoreProtocol = GoalsStore()
+        api: (any BeeminderAPI)? = nil,
+        tokenStore: (any TokenStore)? = nil,
+        queueStore: (any QueueStoreProtocol)? = nil,
+        goalsStore: (any GoalsStoreProtocol)? = nil
     ) {
-        self.api = api
-        self.tokenStore = tokenStore
-        self.queueStore = queueStore
-        self.goalsStore = goalsStore
+        self.api = api ?? LiveBeeminderAPI()
+        self.tokenStore = tokenStore ?? KeychainTokenStore()
+        self.queueStore = queueStore ?? QueueStore()
+        self.goalsStore = goalsStore ?? GoalsStore()
 
         startNetworkMonitoring()
     }
