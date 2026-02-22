@@ -21,6 +21,7 @@ final class WatchSessionManager: NSObject {
     private var session: WCSession?
     private weak var appModel: AppModel?
     private var lastSentData: Data?
+    private var pendingData: Data?
 
     private override init() {
         super.init()
@@ -36,14 +37,9 @@ final class WatchSessionManager: NSObject {
         session?.activate()
     }
 
-    /// Send pinned goals to the watch via application context
+    /// Send pinned goals to the watch via application context.
+    /// Buffers the payload when the session isn't ready and flushes later.
     func sendPinnedGoals(_ goals: [Goal]) {
-        guard let session, session.activationState == .activated else { return }
-
-        #if os(iOS)
-        guard session.isWatchAppInstalled else { return }
-        #endif
-
         let summaries = goals.map { goal in
             GoalSummary(slug: goal.slug, title: goal.title, losedate: goal.losedate)
         }
@@ -53,12 +49,45 @@ final class WatchSessionManager: NSObject {
 
         // Skip if identical to last send
         if data == lastSentData { return }
-        lastSentData = data
+
+        guard let session, session.activationState == .activated else {
+            pendingData = data
+            return
+        }
+
+        #if os(iOS)
+        guard session.isWatchAppInstalled else {
+            pendingData = data
+            return
+        }
+        #endif
 
         do {
             try session.updateApplicationContext(["pinnedGoals": data])
+            lastSentData = data
+            pendingData = nil
         } catch {
             Logger.watch.error("Failed to send pinned goals to watch: \(error.localizedDescription)")
+            pendingData = data
+        }
+    }
+
+    /// Attempt to send any buffered payload that couldn't be sent earlier.
+    private func flushPending() {
+        guard let data = pendingData else { return }
+
+        guard let session, session.activationState == .activated else { return }
+
+        #if os(iOS)
+        guard session.isWatchAppInstalled else { return }
+        #endif
+
+        do {
+            try session.updateApplicationContext(["pinnedGoals": data])
+            lastSentData = data
+            pendingData = nil
+        } catch {
+            Logger.watch.error("Failed to flush pending goals to watch: \(error.localizedDescription)")
         }
     }
 }
@@ -76,10 +105,8 @@ extension WatchSessionManager: WCSessionDelegate {
             #endif
             self.isReachable = session.isReachable
 
-            // Push current pinned goals on activation
-            if let appModel {
-                self.sendPinnedGoals(appModel.pinnedGoals)
-            }
+            // Flush any buffered goals now that session is active
+            self.flushPending()
         }
     }
 
@@ -96,10 +123,8 @@ extension WatchSessionManager: WCSessionDelegate {
             self.isWatchAppInstalled = session.isWatchAppInstalled
             self.isReachable = session.isReachable
 
-            // Push current pinned goals when watch state changes
-            if let appModel {
-                self.sendPinnedGoals(appModel.pinnedGoals)
-            }
+            // Flush any buffered goals when watch state changes
+            self.flushPending()
         }
     }
     #endif
