@@ -25,11 +25,20 @@ struct Goal: Identifiable, Codable, Hashable, Sendable {
     }
 
     var urgencyLabel: String {
-        let hours = timeToDerail / 3600
-        if hours < 0 { return "derailed" }
-        if hours < 24 { return "<24h" }
-        let days = Int(hours / 24)
-        let remainingHours = Int(hours) % 24
-        return "\(days)d \(remainingHours)h"
+        let total = timeToDerail
+        if total < 0 { return "derailed" }
+
+        let hours = Int(total) / 3600
+        let minutes = (Int(total) % 3600) / 60
+
+        if hours >= 24 {
+            let days = hours / 24
+            let remainingHours = hours % 24
+            return "\(days)d \(remainingHours)h"
+        }
+        if hours >= 1 {
+            return "\(hours)h \(minutes)m"
+        }
+        return "\(minutes)m"
     }
 }
