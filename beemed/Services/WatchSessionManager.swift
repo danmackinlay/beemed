@@ -11,6 +11,13 @@ import WatchConnectivity
 
 /// Manages WatchConnectivity session on iOS side.
 /// Sends pinned goals to watch and receives +1 events from watch.
+///
+/// Two-phase lifecycle:
+/// - `activate()` is called from `App.init()` so the WCSession is ready even when
+///   iOS launches in the background for WatchConnectivity traffic.
+/// - `bind(appModel:)` is called from `.onAppear` once AppModel exists.
+/// - When datapoints arrive before `bind()`, they're persisted to `queueStore`
+///   and flushed on the next full launch.
 @Observable
 final class WatchSessionManager: NSObject {
     static let shared = WatchSessionManager()
@@ -20,6 +27,9 @@ final class WatchSessionManager: NSObject {
 
     private var session: WCSession?
     private weak var appModel: AppModel?
+    /// Fallback persistence: iOS may be woken in the background by WatchConnectivity
+    /// before AppModel is initialized — queueStore ensures datapoints aren't dropped.
+    private let queueStore = QueueStore()
     private var lastSentData: Data?
     private var pendingData: Data?
 
@@ -27,14 +37,19 @@ final class WatchSessionManager: NSObject {
         super.init()
     }
 
-    func configure(appModel: AppModel) {
-        self.appModel = appModel
-
+    /// Activate the WCSession early (no AppModel dependency).
+    /// Call from app init so background launches can receive messages.
+    func activate() {
         guard WCSession.isSupported() else { return }
 
         session = WCSession.default
         session?.delegate = self
         session?.activate()
+    }
+
+    /// Bind the AppModel reference once it's ready.
+    func bind(appModel: AppModel) {
+        self.appModel = appModel
     }
 
     /// Send pinned goals to the watch via application context.
@@ -129,7 +144,7 @@ extension WatchSessionManager: WCSessionDelegate {
     }
     #endif
 
-    /// Handle pull requests from watch
+    /// Handle pull requests and datapoint submissions from watch
     func session(_ session: WCSession, didReceiveMessage message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void) {
         if message["requestPinnedGoals"] as? Bool == true {
             Task { @MainActor in
@@ -149,6 +164,23 @@ extension WatchSessionManager: WCSessionDelegate {
                     replyHandler([:])
                 }
             }
+        } else if message["submitDatapoint"] as? Bool == true {
+            guard let goalSlug = message["goalSlug"] as? String,
+                  let value = message["value"] as? Double else {
+                replyHandler(["error": "missing fields"])
+                return
+            }
+            let comment = message["comment"] as? String
+
+            Task { @MainActor in
+                if let appModel {
+                    _ = await appModel.addDatapoint(goalSlug: goalSlug, value: value, comment: comment)
+                } else {
+                    let item = QueuedDatapoint(goalSlug: goalSlug, value: value, comment: comment)
+                    try? await self.queueStore.enqueue(item)
+                }
+                replyHandler(["ok": true])
+            }
         }
     }
 
@@ -162,14 +194,13 @@ extension WatchSessionManager: WCSessionDelegate {
         let comment = userInfo["comment"] as? String
 
         Task { @MainActor in
-            guard let appModel else { return }
-
-            // Submit datapoint using AppModel
-            _ = await appModel.addDatapoint(
-                goalSlug: goalSlug,
-                value: value,
-                comment: comment
-            )
+            if let appModel {
+                _ = await appModel.addDatapoint(goalSlug: goalSlug, value: value, comment: comment)
+            } else {
+                // No AppModel yet (background launch) — persist to queue for later flush
+                let item = QueuedDatapoint(goalSlug: goalSlug, value: value, comment: comment)
+                try? await self.queueStore.enqueue(item)
+            }
         }
     }
 }
@@ -188,7 +219,8 @@ final class WatchSessionManager: NSObject {
         super.init()
     }
 
-    func configure(appModel: AppModel) {}
+    func activate() {}
+    func bind(appModel: AppModel) {}
     func sendPinnedGoals(_ goals: [Goal]) {}
 }
 

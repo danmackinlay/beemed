@@ -12,6 +12,15 @@ struct beemedApp: App {
     @State private var appModel = AppModel()
     @Environment(\.scenePhase) private var scenePhase
 
+    init() {
+        // Activate WCSession in init() rather than .onAppear because iOS can launch
+        // the app in the background for WatchConnectivity delivery, and .onAppear
+        // only fires when UI is displayed.
+        #if os(iOS)
+        WatchSessionManager.shared.activate()
+        #endif
+    }
+
     var body: some Scene {
         WindowGroup {
             Group {
@@ -25,9 +34,8 @@ struct beemedApp: App {
             }
             .environment(appModel)
             .onAppear {
-                // Configure WatchSessionManager for watch communication
                 #if os(iOS)
-                WatchSessionManager.shared.configure(appModel: appModel)
+                WatchSessionManager.shared.bind(appModel: appModel)
                 #endif
             }
             .task {

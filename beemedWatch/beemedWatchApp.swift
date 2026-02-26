@@ -19,13 +19,17 @@ struct beemedWatchApp: App {
     }
 }
 
+enum ConfirmationStyle: Equatable {
+    case sent
+    case queued
+}
+
 /// Observable state for watch app, manages WCSession and received goals
 @Observable
 final class WatchState: NSObject {
     var goals: [GoalSummary] = []
     var isConnected: Bool = false
-    var lastSentGoal: String?
-    var showingConfirmation: Bool = false
+    var confirmationStyle: ConfirmationStyle?
 
     private var session: WCSession?
 
@@ -50,10 +54,45 @@ final class WatchState: NSObject {
         session?.activate()
     }
 
-    /// Send +1 event to iPhone
+    /// Send +1 event to iPhone. Uses sendMessage for instant delivery when
+    /// reachable, falls back to transferUserInfo for guaranteed background delivery.
     func sendPlusOne(goalSlug: String, value: Double = 1.0, comment: String? = nil) {
         guard let session, session.activationState == .activated else { return }
 
+        var payload: [String: Any] = [
+            "submitDatapoint": true,
+            "goalSlug": goalSlug,
+            "value": value
+        ]
+        if let comment {
+            payload["comment"] = comment
+        }
+
+        // sendMessage is instant but requires reachability (iPhone app foregrounded
+        // or nearby); transferUserInfo is queued by the OS for guaranteed delivery
+        // but may be delayed until the next connectivity window.
+        if session.isReachable {
+            session.sendMessage(payload, replyHandler: { [weak self] reply in
+                guard let self else { return }
+                Task { @MainActor in
+                    self.showConfirmation(.sent, for: goalSlug)
+                }
+            }, errorHandler: { [weak self] error in
+                guard let self else { return }
+                Logger.watch.warning("sendMessage failed, falling back to transferUserInfo: \(error.localizedDescription)")
+                // Fall back to guaranteed delivery
+                self.transferDatapoint(goalSlug: goalSlug, value: value, comment: comment)
+                Task { @MainActor in
+                    self.showConfirmation(.queued, for: goalSlug)
+                }
+            })
+        } else {
+            transferDatapoint(goalSlug: goalSlug, value: value, comment: comment)
+            showConfirmation(.queued, for: goalSlug)
+        }
+    }
+
+    private func transferDatapoint(goalSlug: String, value: Double, comment: String?) {
         var userInfo: [String: Any] = [
             "goalSlug": goalSlug,
             "value": value
@@ -61,18 +100,17 @@ final class WatchState: NSObject {
         if let comment {
             userInfo["comment"] = comment
         }
+        session?.transferUserInfo(userInfo)
+    }
 
-        session.transferUserInfo(userInfo)
+    private func showConfirmation(_ style: ConfirmationStyle, for goalSlug: String) {
+        confirmationStyle = style
 
-        // Show confirmation
-        lastSentGoal = goalSlug
-        showingConfirmation = true
-
-        // Auto-hide confirmation
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(1.5))
-            if lastSentGoal == goalSlug {
-                showingConfirmation = false
+            // Only dismiss if no newer confirmation has appeared
+            if confirmationStyle == style {
+                confirmationStyle = nil
             }
         }
     }
