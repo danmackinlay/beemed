@@ -26,8 +26,8 @@ struct ContentView: View {
                 }
 
                 // Confirmation overlay
-                if watchState.showingConfirmation {
-                    ConfirmationOverlay()
+                if let style = watchState.confirmationStyle {
+                    ConfirmationOverlay(style: style)
                         .transition(.opacity.combined(with: .scale))
                 }
             }
@@ -41,22 +41,24 @@ struct ContentView: View {
                     }
                 }
             }
-            .animation(.easeInOut(duration: 0.2), value: watchState.showingConfirmation)
+            .animation(.easeInOut(duration: 0.2), value: watchState.confirmationStyle)
         }
     }
 }
 
 struct ConfirmationOverlay: View {
+    var style: ConfirmationStyle
+
     var body: some View {
         ZStack {
             Color.black.opacity(0.7)
                 .ignoresSafeArea()
 
             VStack(spacing: 8) {
-                Image(systemName: "checkmark.circle.fill")
+                Image(systemName: style == .sent ? "checkmark.circle.fill" : "clock.fill")
                     .font(.system(size: 50))
-                    .foregroundStyle(.green)
-                Text("+1 Sent")
+                    .foregroundStyle(style == .sent ? .green : .blue)
+                Text(style == .sent ? "+1 Sent" : "+1 Queued")
                     .font(.headline)
             }
         }

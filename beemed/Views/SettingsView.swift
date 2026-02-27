@@ -64,7 +64,7 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    LabeledContent("Connected as", value: appModel.session.username)
+                    LabeledContent("Connected as", value: appModel.session.username.isEmpty ? "—" : appModel.session.username)
                     Button {
                         Task {
                             await appModel.refreshGoals()

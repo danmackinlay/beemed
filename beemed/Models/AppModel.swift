@@ -84,8 +84,6 @@ final class AppModel {
     /// Tracks actual network path status (networkStatus is derived from this + queue.isFlushing)
     private var pathSatisfied: Bool = false
 
-    private let usernameKey = "beeminder_username"
-
     // MARK: - Init
 
     init(
@@ -116,7 +114,7 @@ final class AppModel {
         // Load token state
         let token = await tokenStore.load()
         session.tokenPresent = token != nil
-        session.username = UserDefaults.standard.string(forKey: usernameKey) ?? ""
+        session.username = await tokenStore.loadUsername() ?? ""
 
         // Load goals from disk
         do {
@@ -150,7 +148,7 @@ final class AppModel {
 
             // Save token
             try await tokenStore.save(result.accessToken)
-            UserDefaults.standard.set(result.username, forKey: usernameKey)
+            try await tokenStore.saveUsername(result.username)
 
             session.tokenPresent = true
             session.username = result.username
@@ -171,8 +169,6 @@ final class AppModel {
         } catch {
             Logger.auth.error("Failed to clear token: \(error.localizedDescription)")
         }
-
-        UserDefaults.standard.removeObject(forKey: usernameKey)
 
         // Clear queue and goals
         do {
